@@ -1,0 +1,6 @@
+/vendor/
+.env
+config/db.php
+.DS_Store
+$.log
+/logs/
