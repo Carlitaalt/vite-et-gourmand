@@ -469,7 +469,7 @@ textarea:focus-visible {
 
 .hero-title-accent {
     color: var(--or);
-    font-style: italic;
+    text-transform: uppercase;
 }
 
 .hero-desc {
@@ -489,7 +489,7 @@ textarea:focus-visible {
 /* ----------------------- PRÉSENTATION ------------------ */
 
 .section-presentation {
-    padding: 120px 0;
+    padding: 100px 0;
     background: linear-gradient(to top, var(--creme) 0%, var(--blanc) 100%);
 }
 
