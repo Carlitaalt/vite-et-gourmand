@@ -95,7 +95,6 @@ $themeBadgeClass = [
 $regimePillClass = [
     'classique' => 'regime--classique',
     'vegetarien' => 'regime--vegetarien',
-    'vegan' => 'regime--vegan',
     'vegan' => 'regime--vegan'
 ];
 
