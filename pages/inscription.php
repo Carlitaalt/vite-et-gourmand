@@ -18,7 +18,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     $mdp_conf = trim($_POST['mot_de_passe_conf'] ?? '');
 
     //Validation
-    if(empty($prenom) || empty($nom) || empty($email) || empty($mdp)) {
+    if(empty($prenom) || empty($nom) ||empty($email) || empty($mdp)) {
         $erreur = 'Veuillez remplir tous les champs obligatoires.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $erreur = 'Adresse e-mail invalide.';
