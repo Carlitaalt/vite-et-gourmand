@@ -1605,7 +1605,7 @@ textarea:focus-visible {
 
 
 
-/* ----------------- CONNEXION / INSCRIPTION ------------- */
+/* ------------ CONNEXION / INSCRIPTION ------------- */
 
 .section-auth {
     min-height: 100vh;
@@ -1877,5 +1877,59 @@ textarea:focus-visible {
 
     .auth-card__footer {
         padding: 1rem 1.25rem 1.5rem;
+    }
+}
+
+
+
+
+/* ------------ PAGE CONTACT ------------- */
+
+.contact-wrapper {
+    max-width: 560px;
+}
+
+.contact-textarea {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    resize: vertical;
+    min-height: 130px;
+    line-height: 1.6;
+}
+
+.contact-textarea-icon {
+    top: 18px;
+    transform: none;
+}
+
+.contact-infos {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+    padding: 1.25rem 2rem 1.5rem;
+    border-top: 1px solid var(--creme-fonce);
+}
+
+.contact-info-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    color: var(--vert-clair);
+}
+
+.contact-info-item svg {
+    color: var(--or);
+    flex-shrink: 0;
+}
+
+/* RESPONSIVE */
+@media (max-width: 576px) {
+    .contact-infos {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem 1.25rem;
     }
 }
