@@ -15,6 +15,7 @@ if(isset($pdo)){
         m.description,
         m.conditions,
         m.nombre_personne_minimum,
+        m.prix_par_personne,
         (m.prix_par_personne * m.nombre_personne_minimum) AS prix_total,
         t.nom AS theme_nom,
         r.nom AS regime_nom
@@ -244,7 +245,7 @@ $regimePillClass = [
 
                 <!-- Footer -->
                 <div class="menu-card__footer">
-                    <a href="<?= $rootPath ?>pages/menu-details.php?id=<?= (int)$menu['menu_id'] ?>" class="btn btn-vg-primary w-100">
+                    <a href="<?= $rootPath ?>pages/menu-detail.php?id=<?= (int)$menu['menu_id'] ?>" class="btn btn-vg-primary w-100">
                         Voir détails →
                     </a>
                 </div>
@@ -272,7 +273,7 @@ $regimePillClass = [
             <h2 class="cta-title">Un menu sur-mesure ?</h2>
             <p class="cta-desc">Contactez-nous pour adapter l'une de nos formules à vos besoins ou créer un menu entièrement personnalisé.</p>
             <div class="cta-actions">
-                <a href="<?= $rootPath ?>pages/contact.php" class="btn-or">Demander un devis</a>
+                <a href="<?= $rootPath ?>contact.php" class="btn-or">Demander un devis</a>
             </div>
         </div>
     </div>
