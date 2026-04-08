@@ -263,7 +263,7 @@ if(!empty($menu['plats'])) {
                     </div>
                 </div>
                 <div class="detail-card-prix__footer">
-                    <a href="<?= $rootPath ?>pages/contact.php?menu=<?= (int)$menu['menu_id'] ?>" class="btn btn-vg-primary w-100">Demander un devis →</a>
+                    <a href="<?= $rootPath ?>pages/commande.php?menu=<?= (int)$menu['menu_id'] ?>" class="btn btn-vg-primary w-100">Commander →</a>
                     <a href="<?= $rootPath ?>pages/menus.php" class="btn btn-vg-secondary w-100 mt-2">← Voir tous les menus</a>
                 </div>
             </div>
@@ -288,7 +288,7 @@ if(!empty($menu['plats'])) {
             <h2 class="cta-title">Prêt à régaler vos convives ?</h2>
             <p class="cta-desc">Contactez nous pour réserver ce menu ou en discuter avec notre équipe.</p>
             <div class="cta-actions">
-                <a href="<?= $rootPath ?>pages/contact.php?menu=<?= (int)$menu['menu_id'] ?>" class="btn-or">Demander un devis</a>
+                <a href="<?= $rootPath ?>pages/contact.php?menu=<?= (int)$menu['menu_id'] ?>" class="btn-or">Nous contacter</a>
                 <a href="<?= $rootPath ?>pages/menus.php" class="btn-vg-primary">Voir tous les menus</a>
             </div>
         </div>

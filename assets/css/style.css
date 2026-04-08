@@ -94,6 +94,30 @@ a:hover {
     color: var(--vert-fonce);
 }
 
+.btn-danger {
+    width: 100%;
+    margin: 1rem auto 0;
+    background: #e74c3c;
+    color: var(--creme);
+    font-family: var(--font-corps);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08rem;
+    padding: 10px 24px;
+    border: none;
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+}
+
+.btn-danger:hover {
+    background: #ff6666;
+    border-color: #ff6666;
+    color: var(--creme);
+}
+
 /* ----------------------- NAVBAR ----------------------- */
 
 .navbar-vg {
@@ -2344,3 +2368,570 @@ textarea:focus-visible {
         padding: 1.25rem;
     }
 }
+
+
+/*--------------------- PAGE MON COMPTE ----------------*/
+
+.section-compte {
+    padding: var(--section-py, 80px) 0 100px;
+    background: var(--creme);
+    min-height: 100vh;
+    position: relative;
+    overflow: hidden;
+}
+
+.compte-header {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.compte-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--vert-fonce);
+    color: var(--or);
+    font-family: var(--font-titre);
+    font-size: 1.25rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 2px solid var(--or);
+}
+
+.compte-header__nom {
+    font-family: var(--font-titre);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--vert-fonce);
+    margin: 0 0 4px;
+}
+
+.compte-header__email {
+    font-size: 13.5px;
+    color: var(--vert-clair);
+    margin: 0;
+}
+
+.compte-tabs {
+    display: flex;
+    gap: O;
+    background: var(--blanc);
+    border: 1px solid var(--creme-fonce);
+    border-radius: var(--border-radius-lg);
+    padding: 6px;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    box-shadow: var(--shadow-sm);
+}
+
+.compte-tab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0.6rem 1.1rem;
+    border: none;
+    border-radius: var(--border-radius);
+    background: none;
+    font-family: var(--font-corps);
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--vert-clair);
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+
+.compte-tab:hover {
+    background: var(--creme);
+    color: var(--vert-fonce);
+}
+
+.compte-tab:active {
+    background: var(--vert-fonce);
+    color: var(--creme);
+}
+
+.compte-tab__badge {
+    background: var(--or);
+    color: var(--vert-fonce);
+    font-size: 11px;
+    font-weight: 700;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.compte-panel {
+    display: none;
+}
+
+.compte-panel.active {
+    display: block;
+}
+
+/* ÉTAT VIDE */
+
+.compte-empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: var(--blanc);
+    border: 1px solid var(--creme-fonce);
+    border-radius: var(--border-radius-lg);
+}
+
+.compte-empty h3 {
+    font-family: var(--font-titre);
+    font-size: 1.2rem;
+    color: var(--vert-fonce);
+    margin-bottom: 0.5rem;
+}
+
+.compte-empty p {
+    font-size: 14px;
+    color: var(--vert-clair);
+}
+
+/* LISTE COMMANDE */
+
+.commandes-liste {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* CARTE COMMANDE */
+
+.commande-item {
+    background: var(--blanc);
+    border: 1px solid var(--creme-fonce);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.commande-item--archive {
+    opacity: 0.85;
+}
+
+.commande-item__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: var(--vert-fonce);
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.commande-item__num {
+    font-family: var(--font-titre);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--creme);
+}
+
+.commande-item__prix {
+    font-family: var(--font-titre);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--or);
+}
+
+.commande-statut {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 20px;
+}
+
+.statut--attente {
+    background: rgba(201, 168, 76, 0.15);
+    color: #7A5A10;
+}
+
+.statut--accepte {
+    background: rgba(44, 106, 31, 0.12);
+    color: #2c6a1f;
+}
+
+.statut--prep {
+    background: rgba(61, 107, 64, 0.12);
+    color: var(--vert-moyen);
+}
+
+.statut--livraison {
+    background: rgba(44, 74, 180, 0.1);
+    color: #2c3eb4;
+}
+
+.statut--livre {
+    background: rgba(44, 106, 31, 0.15);
+    color: #2c6a1f;
+}
+
+.statut--materiel {
+    background: rgba(180, 100, 20, 0.12);
+    color: #7A4A10;
+}
+
+.statut--termine {
+    background: rgba(44, 74, 46, 0.12);
+    color: var(--vert-fonce);
+}
+
+.statut--annule {
+    background: rgba(180, 40, 40, 0.1);
+    color: #b42828;
+}
+
+/* BODY COMMANDE */
+
+.commande-item__body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    padding: 1.25rem;
+}
+
+.commande-item__info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.commande-info-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.commande-info-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--vert-clair);
+}
+
+.commande-info-val {
+    font-size: 14px;
+    color: var(--vert-fonce);
+    font-weight: 500;
+}
+
+/* TIMELINE SUIVI */
+
+.commande-suivi__titre {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--or);
+    margin-bottom: 0.85rem;
+}
+
+.suivi-timeline {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+}
+
+.suivi-timeline::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(creme);
+}
+
+.suivi-etape {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 0 0 0.75rem;
+    position: relative;
+}
+
+.suivi-etape:last-child {
+    padding-bottom: 0;
+}
+
+.suivi-etape__dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--creme-fonce);
+    border: 2px solid var(--blanc);
+    flex-shrink: 0;
+    margin-top: 2px;
+    position: relative;
+    z-index: 1;
+}
+
+.suivi-etape__content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.suivi-etape__label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--vert-fonce);
+}
+
+.suivi-etape__date {
+    font-size: 11.5px;
+    color: var(--vert-clair);
+}
+
+/* ACTIONS COMMANDE */
+
+.commande-item__actions {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.85rem 1.25rem 1.25rem;
+    border-top: 1px solid var(--creme-fonce);
+}
+
+.btn-compte-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.45rem 1rem;
+    border-radius: var(--border-radius);
+    font-family: var(--font-corps);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    border: 1.5px solid;
+}
+
+.btn-compte-action--modifier {
+    background: none;
+    border-color: var(--vert-clair);
+    color: var(--vert-moyen);
+}
+
+.btn-compte-action--modifier:hover {
+    background: var(--vert-fonce);
+    border-color: var(--vert-fonce);
+    color: var(--creme);
+}
+
+.btn-compte-action--annuler {
+    background: none;
+    border-color: rgba(180, 40, 40, 0.3);
+    color: #b42828;
+}
+
+.btn-compte-action--annuler:hover {
+    background: rgba(180, 40, 40, 0.08);
+}
+
+/* FORMULAIRE MODIFICATION */
+
+.commande-modif-form {
+    padding: 1.25rem;
+    border-top: 1px solid var(--creme-fonce);
+    background: var(--creme);
+}
+
+.modif-form__titre {
+    font-family: var(--font-titre);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--vert-fonce);
+    margin-bottom: 1rem;
+}
+
+.modif-form__actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+/* AVIS */
+
+.avis-form {
+    padding: 1rem 1.25rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.avis-form__stars {
+    display: flex;
+    gap: 6px;
+}
+
+.star-label {
+    cursor: pointer;
+}
+
+.star-label input {
+    display: none;
+}
+
+.star-icon {
+    font-size: 1.75rem;
+    color: var(--creme-fonce);
+    transition: color 0.15s ease;
+    display: block;
+}
+
+.avis-textarea {
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.6;
+}
+
+.avis-donne {
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.avis-donne__stars {
+    display: flex;
+    gap: 3px;
+    margin-bottom: 0.5rem;
+}
+
+.star--on {
+    color: var(--or);
+    font-size: 1.2rem;
+}
+
+.star-off {
+    color: var(--creme-fonce);
+    font-size: 1.2rem;
+}
+
+.avis-donne__texte {
+    font-size: 14px;
+    color: var(--vert-fonce);
+    line-height: 1.6;
+    font-style: italic;
+    margin-bottom: 0.5rem;
+}
+
+.avis-donne__label {
+    font-size: 11.5px;
+    color: var(--vert-clair);
+    background: rgba(107, 158, 110, 0.1);
+    border: 1px solid rgba(107, 158, 110, 0.2);
+    border-radius: var(--border-radius);
+    padding: 4px 10px;
+    display: inline-block;
+}
+
+/*PROFIL*/
+
+.profil-card {
+    background: var(--blanc);
+    border: 1px solid var(--creme-fonce);
+    border-radius: var(--border-radius-lg);
+    padding: 2rem;
+    box-shadow: var(--shadow-sm);
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 768px) {
+    .commande-item__body {
+        grid-template-columns: 1fr;
+    }
+
+    .compte-tabs {
+        gap: 4px;
+    }
+
+    .compte-tab {
+        padding: 0.5rem 0.75rem;
+        font-size: 12.5px;
+    }
+}
+
+@media (max-width: 576px) {
+    .commande-field-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+
+
+/*-------------- CVG & MENTIONS LEGALES -----------*/
+
+.legal-wrapper {
+    margin-top: 50px;
+    display: flex;
+    justify-content: center;
+}
+
+.legal-card {
+    background: var(--blanc);
+    border-radius: 20px;
+    padding: 50px;
+    max-width: 800px;
+    width: 100%;
+    text-align: left;
+    border: 1px solid var(--creme-fonce);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+}
+
+.legal-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.legal-card h3 {
+    font-family: var(--font-titre);
+    color: var(--vert-fonce);
+    margin-top: 30px;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.legal-card h3::after {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 2px;
+    background: var(--or);
+    margin-top: 6px;
+}
+
+.legal-card p {
+    font-size: 14px;
+    color: rgba(27, 67, 50, 0.75);
+    line-height: 1.8;
+}
+
+.legal-card h3:first-child {
+    margin-top: 0;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 768px) {
+    .legal-card {
+        padding: 30px 20px;
+    }
+}
+
