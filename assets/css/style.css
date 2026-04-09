@@ -2535,7 +2535,7 @@ textarea:focus-visible {
     font-family: var(--font-titre);
     font-size: 1rem;
     font-weight: 600;
-    color: var(--creme);
+    color: var(--vert-clair);
 }
 
 .commande-item__prix {
@@ -2935,3 +2935,439 @@ textarea:focus-visible {
     }
 }
 
+
+/*--------------------- ESPACE EMPLOYES--------------*/
+
+.employe-avatar {
+    background: linear-gradient(135deg, var(--vert-fonce), var(--or));
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+.employe-role-badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--or-clair, #FEF3DB);
+    color: var(--or);
+    border: 1px solid var(--or);
+    border-radius: 20px;
+    padding: 2px 10px;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
+.employe-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.employe-stat-card {
+    background: var(--blanc);
+    border: 1px solid var(--creme-fonce);
+    border-radius: var(--border-radius-lg);
+    padding: 1.1 rem 1.25rem;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    border-top: 3px solid transparent;
+}
+
+.employe-stat-card--attente {
+    border-top-color: var(--or);
+}
+
+.employe-stat-card--cours {
+    border-top-color: var(--vert-clair);
+}
+
+.employe-stat-card--avis {
+    border-top-color: #7F77DD;
+}
+
+.employe-stat-card--ca {
+    border-top-color: var(--vert-fonce);
+}
+
+.employe-stat__label {
+    font-size: 12px;
+    color: var(--texte-muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+@media (max-width: 768px) {
+    .employe-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .employe-stats {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+}
+
+/* FILTRES COMMANDE */
+
+.employe-filtres {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-end;
+    background: var(--blanc);
+    border: 1px solid var(--creme-fonce);
+    border-radius: var(--border-radius-lg);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    flex-wrap: wrap;
+}
+
+.employe-filtre-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+.employe-filtre-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--texte-muted);
+    margin-bottom: 6px;
+}
+
+.employe-filtre-select {
+    width: 100%;
+}
+
+/* INFOS CLIENT DANS COMMANDE */
+
+.employe-client-bloc {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--creme);
+    border-radius: var(--border-radius);
+    margin-bottom: 12px;
+    border: 1px solid var(--creme-fonce);
+}
+
+.employe-client-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--vert-fonce);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.employe-client-nom {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--vert-fonce);
+}
+
+.employe-client-contact {
+    font-size: 12px;
+    color: var(--texte-muted);
+    margin-top: 2px;
+}
+
+.employe-client-contact a {
+    color: var(--vert-clair);
+    text-decoration: none;
+}
+
+.employe-client-contact a:hover {
+    text-decoration: underline;
+}
+
+/* SELECT STATUT INLINE */
+
+.employe-statut-select {
+    width: auto;
+    min-width: 180px;
+    padding: 6px 10px;
+    font-size: 13px;
+}
+
+.employe-commande-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* FORMULAIRE ANNULATION AVEC MOTIF */
+
+.employe-annulation-form {
+    border-top: 2px solid #F09595;
+}
+
+.employe-annulation-form .modif-form__titre {
+    color: #A32D2D;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.employe-annulation-notice {
+    background: #FCEBEB;
+    border: 1px solid #F09595;
+    border-radius: var(--border-radius);
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #A32D2D;
+    margin-bottom: 1rem;
+}
+
+/* AVIS EMPLOYÉ */
+
+.avis-employe-body {
+    padding: 12px 1.25rem 6px;
+}
+
+.avis-employe-menu {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--texte-muted);
+    margin-bottom: 6px;
+}
+
+.employe-section-titre {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--vert-fonce);
+    margin-bottom: 1rem;
+}
+
+/* CATALOGUE MENUS / PLATS */
+
+.employe-sous-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--creme);
+    border: 1px solid var(--creme-fonce);
+    border-radius: var(--border-radius);
+    padding: 4px;
+    width: fit-content;
+    margin-bottom: 1.5rem;
+}
+
+.employe-sous-tab {
+    padding: 7px 18px;
+    border: none;
+    background: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--texte-muted);
+    transition: all 0.15s;
+}
+
+.employe-sous-tab:active {
+    background: var(--vert-fonce);
+    color: #fff;
+}
+
+.employe-sous-panel {
+    display: none;
+}
+
+.employe-sous-panel.active {
+    display: block;
+}
+
+.employe-catalogue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.employe-catalogue {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.employe-catalogue-item {
+    background: var(--blanc);
+    border: 1px solid var(--creme-fonce);
+    border-radius: 0;
+    padding: 1rem 1.25rem;
+    border-bottom: none;
+}
+
+.employe-catalogue-item:first-child {
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+}
+
+.employe-catalogue-item:last-child {
+    border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
+    border-bottom: 1px solid var(--creme-fonce);
+}
+
+.employe-catalogue-item:only-child {
+    border-radius: var(--border-radius-lg);
+    border-bottom: 1px solid var(--creme-fonce);
+}
+
+.employe-catalogue-item__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.employe-catalogue-item__meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--texte-muted);
+}
+
+.employe-allergene {
+    font-size: 12px;
+    color: #B8860B;
+    background: #FEF9EC;
+    border: 1px solid #F5D98A;
+    border-radius: 4px;
+    padding: 2px 8px;
+}
+
+/* HORAIRES */
+
+.horaires-table {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--creme-fonce);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+}
+
+.horaire-row {
+    display: grid;
+    grid-template-columns: 110px 130px 1fr;
+    align-items: center;
+    gap: 1rem;
+    padding: 14px 1.25rem;
+    border-bottom: 1px solid var(--creme-fonce);
+    background: var(--blanc);
+    transition: background 0.1s;
+}
+
+.horaire-row:last-child {
+    border-bottom: none;
+}
+
+.horaire-row:hover {
+    background: #FAFAF8;
+}
+
+.horaire-jour {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--vert-fonce);
+}
+
+.horaire-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.horaire-toggle__label {
+    font-size: 13px;
+    color: var(--texte-muted);
+    min-width: 42px;
+}
+
+.horaire-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    cursor: pointer;
+}
+
+.horaire-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.horaire-switch__slider {
+    position: absolute;
+    inset: 0;
+    background: var(--creme-fonce);
+    border-radius: 22px;
+    transition: background 0.2s;
+}
+
+.horaire-switch__slider::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.horaire-switch input:checked + .horaire-switch__slider {
+    background: var(--vert-clair);
+}   
+
+.horaire-switch input:checked + .horaire-switch__slider::before {
+    transform: translateX(18px);
+}
+
+.horaire-heures {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: opacity 0.2s;
+}
+
+.horaire-input {
+    width: 110px !important;
+    padding: 6px 10px !important;
+    font-size: 13px !important;
+}
+.horaire-sep {
+    font-size: 14px;
+    color: var(--texte-muted);
+}
+
+@media (max-width: 576px) {
+    .horaire-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .horaire-heures {
+        flex-direction: column;
+        align-items: flex-start;    
+    }
+}
