@@ -1,11 +1,15 @@
 <?php
+session_start();
+
 $pageTitle = 'Espace Employé';
 $rootPath = '../';
 $currentPage = 'espace-employe';
+
+require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
-session_start();
+
 $estConnecte = isset($_SESSION['employe_id']);
 
 // if (!estConnecte) {

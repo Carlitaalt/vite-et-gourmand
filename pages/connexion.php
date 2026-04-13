@@ -1,7 +1,11 @@
 <?php
+session_start();
+
 $pageTitle = 'Connexion';
 $rootPath = '../';
 $currentPage = 'connexion';
+
+require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
@@ -16,14 +20,14 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         $erreur = 'Veuillez remplir tous les champs.';
     } elseif (isset($pdo)) {
         try {
-            $stmt = $pdo->prepare("SELECT * FROM utilisateurs WHERE email :email LIMIT 1");
+            $stmt = $pdo->prepare("SELECT * FROM utilisateurs WHERE email = :email LIMIT 1");
             $stmt->execute([':email' => $email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if($user && password_verify($mdp, $user['mot_de_passe'])) {
-                session_start();
                 $_SESSION['user_id'] = $user['utilisateur_id'];
                 $_SESSION['user_nom'] = $user['prenom'] . ' ' . $user['nom'];
+                $_SESSION['user_role'] = $user['role'] ?? 'utilisateur';
                 header('Location: ' . $rootPath . 'pages/accueil.php');
                 exit;
             } else {
@@ -88,11 +92,12 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                         
                         <div class="auth-field">
-                            <label for="mot_de_passe" class="auth-field">Mot de passe</label>
+                            <label for="mot_de_passe" class="auth-label">Mot de passe</label>
                             <div class="auth-input-wrap">
                                 <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                                 <input type="password" id="mot_de_passe" name="mot_de_passe" class="auth-input" placeholder="•••••••" required autocomplete="current-password">
                             </div>
+                            <a href="<?= $rootPath ?>pages/mot-de-passe-oublie.php" class="auth-link auth-link--small">Mot de passe oublié ?</a>
                         </div>
 
                         <button type="submit" class="auth-btn">Se connecter

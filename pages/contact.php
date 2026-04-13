@@ -2,6 +2,8 @@
 $pageTitle = 'Contact';
 $rootPath = '../';
 $currentPage = 'contact';
+
+require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
@@ -35,7 +37,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             $succes = 'Votre message a bien été envoyé ! Nous vous répondrons dans les plus brefs délais.';
         } else {
             //En local (XAMPP) mail() ne fonctionne pas on simule le succès
-            $sucess = 'Message reçu ! Nous vous répondrons à l\'adresse ' . htmlspecialchars($email) . '.';
+            $succes = 'Message reçu ! Nous vous répondrons à l\'adresse ' . htmlspecialchars($email) . '.';
         }
     }
 }

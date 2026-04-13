@@ -2,6 +2,8 @@
 $pageTitle = 'Mon Compte';
 $rootPath = '../';
 $currentPage = 'mon-compte';
+
+require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 

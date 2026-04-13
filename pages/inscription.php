@@ -2,6 +2,8 @@
 $pageTitle = 'Inscription';
 $rootPath = '../';
 $currentPage = 'inscription';
+
+require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
@@ -18,18 +20,18 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     $mdp_conf = trim($_POST['mot_de_passe_conf'] ?? '');
 
     //Validation
-    if(empty($prenom) || empty($nom) ||empty($email) || empty($mdp)) {
+    if(empty($prenom) || empty($nom) || empty($email) || empty($mdp)) {
         $erreur = 'Veuillez remplir tous les champs obligatoires.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $erreur = 'Adresse e-mail invalide.';
-    } elseif(strlen($mdp) < 8) {
-        $erreur = 'Le mot de passe doit contenir au moins 8 caractères.';
+    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$/', $mdp)) {
+        $erreur = 'Le mot de passe doit contenir au moins 10 caractères, avec une majuscule, une minuscule, un chiffre et un caractère spécial.';
     } elseif ($mdp !== $mdp_conf) {
         $erreur = 'Les mots de passes ne correspondent pas.';
     } elseif (isset($pdo)) {
         try {
             //Vérifier si email déjà utilisé
-            $check = $pdo->prepare("SELECT utilisateur_id FROM utilisateur WHERE email = :email");
+            $check = $pdo->prepare("SELECT utilisateur_id FROM utilisateurs WHERE email = :email");
             $check->execute([':email' => $email]);
             if ($check->fetch()) {
                 $erreur = 'Cette adresse e-mail est déjà utilisée.';
@@ -146,13 +148,14 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                                 <input type="password" id="mot_de_passe" name="mot_de_passe" class="auth-input" placeholder="••••••••" required autocomplete="new-password" minlength="8">
                             </div>
-                            <span class="auth-field">
+                        </div>
+                            <div class="auth-field">
                                 <label for="mot_de_passe_conf" class="auth-label">Confirmer le mot de passe <span class="auth-required">*</span></label>
                                 <div class="auth-input-wrap">
                                     <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                                     <input type="password" id="mot_de_passe_conf" name="mot_de_passe_conf" class="auth-input" placeholder="••••••••" required autocomplete="new-password">
                                 </div>
-                        </div>
+                            </div>
                     </div>
                     <button type="submit" class="auth-btn">Créer mon compte
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>

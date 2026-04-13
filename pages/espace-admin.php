@@ -1,11 +1,15 @@
 <?php 
+session_start();
+
 $pageTitle = 'Espace Administrateur';
 $rootPath = '../';
 $curentPage = 'espace-admin';
+
+require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
-session_start();
+
 $estConnecte = isset($_SESSION['user_id']);
 
 // if(!estConnecte) {

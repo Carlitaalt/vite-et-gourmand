@@ -1,9 +1,12 @@
-<?php 
+<?php
 $pageTitle = "Conditions Générales de Vente";
 $rootPath = '../';
 $currentPage = 'cgv';
+
+require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
+
 ?>
 
 <section class="section-presentation">
@@ -39,19 +42,18 @@ require_once '../includes/navbar.php';
                     Le solde est à régler avant ou le jour de la prestation.
                 </p>
 
-                <h3>4. Paiement</h3>
+                <h3>5. Information du site</h3>
                 <p>
-                    Un accompte peut être demandé à la commande.
-                    Le solde est à régler avant ou le jour de la prestation.
+                    Les informations présentes sur ce site sont données à titre indicatif et peuvent évoluer.
                 </p>
 
-                <h3>5. Annulation</h3>
+                <h3>6. Annulation</h3>
                 <p>
                     Toute annulation doit être effectuée par écrit.
                     Des frais peuvent être appliqués selon le délai.
                 </p>
 
-                <h3>6. Livraison</h3>
+                <h3>7. Livraison</h3>
                 <p>
                     Vite & Gourmand s'engage à fournir un service de qualité après la livraison des produits.
                 </p>

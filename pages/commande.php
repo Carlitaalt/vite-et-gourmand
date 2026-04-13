@@ -1,7 +1,9 @@
 <?php
 $pageTitle = 'Commander un menu';
-$roothPath  = '../';
+$rootPath  = '../';
 $currentPage = 'commande';
+
+require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
@@ -27,15 +29,15 @@ if(isset($pdo)) {
         t.nom AS theme_nom FROM menus m
         LEFT JOIN theme ON t.theme_id = m.theme_id
         ORDER BY m.titre ASC");
-        $menu = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $menus = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e){
         //Exception
     }
 }
 
 //Données fictives si pas de BDD
-if(empty($menu)) {
-    $menu = [
+if(empty($menus)) {
+    $menus = [
 
             ['menu_id' => 1, 'titre' => 'Le grand Festin de Noël', 'nombre_personne_minimum' => 10, 'prix_par_personne' => 32.00, 'prix_total' => 320.00, 'theme_nom' => 'Noël'],
             ['menu_id' => 2, 'titre' => 'Printemps & Pâques', 'nombre_personne_minimum' => 8, 'prix_par_personne' => 80.00, 'prix_total' => 180.00, 'theme_nom' => 'Pâques'],
@@ -97,6 +99,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':nbp' => $nbPersonnes,
                         ':date' => $datePresta,
                         ':heure' => $heurePresta,
+                        ':adresse' => $adressePresta
                     ]);
                     $succes = 'Votre commande a bien été enregistrée ! Vous recevrez un mail de confirmation.';
                 } catch (Exception $e) {
@@ -202,7 +205,7 @@ $menusJson = json_encode($menus);
                         <label for="menu_id" class="commande-label">Menu <span class="auth-required">*</span></label>
                         <select name="menu_id" id="menu_id" class="commande_input commande-select" required>
                             <option value="">- Sélectionnez un menu -</option>
-                            <?php foreach($menu as $m): ?>
+                            <?php foreach($menus as $m): ?>
                                 <option value="<?= $m['menu_id'] ?>" data-prix="<?= $m['prix_par_personne'] ?>" data-min="<?= $m['nombre_personne_minimum'] ?>" <?= ($menuIdPreselect === $m['menu_id']) ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($m['titre']) ?> - <?= number_format($m['prix_par_personne'], 2, ',', ' ') ?> € / pers.
                                 </option>

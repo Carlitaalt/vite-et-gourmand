@@ -2,6 +2,8 @@
 $pageTitle = 'Détail du Menu';
 $rootPath = '../';
 $currentPage = 'menus';
+
+require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
@@ -23,7 +25,7 @@ if(isset($pdo) && $id > 0) {
         r.nom AS regime_nom
         FROM menus m
         LEFT JOIN theme t ON t.theme_id = m.theme_id
-        LEFT JOIN r ON r.regime_id = m.regime_id
+        LEFT JOIN regimes r ON r.regime_id = m.regime_id
         WHERE m.menu_id = :id
         ");
         $stmt->execute([':id' => $id]);
