@@ -1,11 +1,12 @@
 <?php 
 session_start();
+require_once '../includes/db.php';
+require_once '../includes/auth.php';
 
 $pageTitle = 'Nouveau mot de passe';
 $rootPath = '../';
 $currentPage = 'connexion';
 
-require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 

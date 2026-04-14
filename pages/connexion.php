@@ -1,46 +1,26 @@
 <?php
 session_start();
 
+require_once '../includes/db.php';
+require_once '../includes/auth.php';
+
+if(est_connecte()){
+    header('Location: ../pages/accueil.php');
+    exit;
+}
+
 $pageTitle = 'Connexion';
 $rootPath = '../';
 $currentPage = 'connexion';
-
-require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
-$erreur = '';
-$succes = '';
+$erreur = $_SESSION['erreur_connexion'] ?? '';
+$succes = $_SESSION['succes_inscription'] ?? '';
+$email = $_SESSION['email_saisi'] ?? '';
 
-if($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email'] ?? '');
-    $mdp = $_POST['mot_de_passe'];
-
-    if(empty($email) || empty($mdp)) {
-        $erreur = 'Veuillez remplir tous les champs.';
-    } elseif (isset($pdo)) {
-        try {
-            $stmt = $pdo->prepare("SELECT * FROM utilisateurs WHERE email = :email LIMIT 1");
-            $stmt->execute([':email' => $email]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if($user && password_verify($mdp, $user['mot_de_passe'])) {
-                $_SESSION['user_id'] = $user['utilisateur_id'];
-                $_SESSION['user_nom'] = $user['prenom'] . ' ' . $user['nom'];
-                $_SESSION['user_role'] = $user['role'] ?? 'utilisateur';
-                header('Location: ' . $rootPath . 'pages/accueil.php');
-                exit;
-            } else {
-                $erreur = 'Email ou mot de passe incorrect.';
-            }
-        } catch (Exception $e) {
-            $erreur = 'Une erreur est survenue. Veuillez réessayer.';
-        }
-    } else {
-        // Sans BDD - Simulation 
-        $succes = 'Connexion simulée avec succès (mode démo).';
-    }
-}
+//Nettoyer les messages après affichage (flash messages)
+unset($_SESSION['erreur_connexion'], $_SESSION['succes_inscription'], $_SESSION['email_saisi']);
 ?>
 
 <section class="section-auth">
@@ -81,7 +61,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     <?php endif; ?>
 
-                    <form method="POST" action="" class="auth-form" novalidate>
+                    <form method="POST" action="../actions/connexion.php" class="auth-form" novalidate>
                         
                         <div class="auth-field">
                             <label for="email" class="auth-label">Adresse e-mail</label>

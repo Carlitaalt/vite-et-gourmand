@@ -1,11 +1,13 @@
 <?php 
 session_start();
+require_once '../includes/db.php';
+require_once '../includes/auth.php';
+exiger_role('administrateur');
 
 $pageTitle = 'Espace Administrateur';
 $rootPath = '../';
 $curentPage = 'espace-admin';
 
-require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 

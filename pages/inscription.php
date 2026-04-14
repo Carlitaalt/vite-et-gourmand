@@ -1,62 +1,23 @@
 <?php
+session_start();
+require_once '../includes/db.php';
+require_once '../includes/auth.php';
+
+if(est_connecte()) {
+    header('Location: ../pages/accueil.php');
+    exit;
+}
+
 $pageTitle = 'Inscription';
 $rootPath = '../';
 $currentPage = 'inscription';
-
-require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
-$erreur = '';
-$succes = '';
+$erreur = $_SESSION['erreur_inscription'] ?? '';
+$form = $_SESSION['form_inscription'] ?? [];
+unset($_SESSION['erreur_inscription'], $_SESSION['form_inscription']);
 
-if($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $prenom = trim($_POST['prenom'] ?? '');
-    $nom = trim($_POST['nom'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $telephone = trim($_POST['telephone'] ?? '');
-    $adresse = trim($_POST['adresse'] ?? '');
-    $mdp = trim($_POST['mot_de_passe'] ?? '');
-    $mdp_conf = trim($_POST['mot_de_passe_conf'] ?? '');
-
-    //Validation
-    if(empty($prenom) || empty($nom) || empty($email) || empty($mdp)) {
-        $erreur = 'Veuillez remplir tous les champs obligatoires.';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $erreur = 'Adresse e-mail invalide.';
-    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$/', $mdp)) {
-        $erreur = 'Le mot de passe doit contenir au moins 10 caractères, avec une majuscule, une minuscule, un chiffre et un caractère spécial.';
-    } elseif ($mdp !== $mdp_conf) {
-        $erreur = 'Les mots de passes ne correspondent pas.';
-    } elseif (isset($pdo)) {
-        try {
-            //Vérifier si email déjà utilisé
-            $check = $pdo->prepare("SELECT utilisateur_id FROM utilisateurs WHERE email = :email");
-            $check->execute([':email' => $email]);
-            if ($check->fetch()) {
-                $erreur = 'Cette adresse e-mail est déjà utilisée.';
-            } else {
-                $hash = password_hash($mdp, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("INSERT INTO utilisateurs (prenom, nom, email, telephone, adresse, mot_de_passe) VALUES (:prenom, :nom, :email, :telephone, :adresse, :mdp)");
-                $stmt->execute([
-                    ':prenom' => $prenom,
-                    ':nom' => $nom,
-                    ':email' => $email,
-                    ':telephone' => $telephone,
-                    ':adresse' => $adresse,
-                    ':mdp' => $hash,
-                ]);
-                $succes = 'Compte créé avec succès ! Vous pouvez maintenant vous connecter.';
-                
-            }
-        } catch (Exception $e) {
-            $erreur = 'Une erreur est survenue. Veuillez réessayer.';
-        }
-    } else {
-        $succes = 'Inscription simulée avec succès (mode démo).';
-    }
-
-}
 ?>
 
 <section class="section-auth">
@@ -97,7 +58,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <?php endif; ?>
 
-                <form method="POST" action="" class="auth-form" novalidate>
+                <form method="POST" action="../actions/inscription.php" class="auth-form" novalidate>
 
                     <div class="auth-field-row">
                         <div class="auth-field">
@@ -137,7 +98,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label for="adresse" class="auth-label">Adresse</label>
                         <div class="auth-input-wrap">
                             <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                            <input type="text" id="adresse" name="adresse" class="auth-input" placeholder="12 rue des Lilas, 75001 Paris" value="<?= htmlspecialchars($_POST['adresse'] ?? '') ?>" autocomplete="street-address">
+                            <input type="text" id="adresse" name="adresse" class="auth-input" placeholder="12 rue des Lilas, 75001 Paris" value="<?= htmlspecialchars($form['adresse'] ?? '') ?>" autocomplete="street-address">
                         </div>
                     </div>
 

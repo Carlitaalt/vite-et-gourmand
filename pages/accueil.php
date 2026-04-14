@@ -1,10 +1,14 @@
 
 <?php
+session_start();
+require_once '../includes/db.php';
+require_once '../includes/auth.php';
+
 $pageTitle = 'Accueil';
 $rootPath = '../';
 $currentPage = 'accueil';
 
-require_once '../includes/db.php';
+
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 ?>

@@ -1,11 +1,13 @@
 <?php
 session_start();
+require_once '../includes/db.php';
+require_once '../includes/auth.php';
+exiger_role('employe');
 
 $pageTitle = 'Espace Employé';
 $rootPath = '../';
 $currentPage = 'espace-employe';
 
-require_once '../includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 

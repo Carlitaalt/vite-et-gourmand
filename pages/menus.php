@@ -1,9 +1,13 @@
 <?php
+session_start();
+require_once '../includes/db.php';
+require_once '../includes/auth.php';
+
 $pageTitle = 'Nos Menus';
 $rootPath = '../';
 $currentPage = 'menus';
 
-require_once '../includes/db.php';
+
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 

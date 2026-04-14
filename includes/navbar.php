@@ -37,31 +37,33 @@
          </li>
 
         <!-- Connexion / Espace utilisateur -->
-         <?php if (isset($_SESSION['utilisateur'])): ?>
+         <?php if (est_connecte()):
+            $user = get_user();
+        ?>
             <!-- Utilisateur connecté -->
              <li class="nav-item dropdown">
                 <a href="#" class="nav-link dropdown-toggle nav-user" role="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Mon espace">
                     <i class="bi bi-person-circle" aria-hidden="true"></i>
-                    <?= htmlspecialchars($_SESSION['utilisateur']['prenom']) ?>
+                    <?= htmlspecialchars($user['prenom']) ?>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end dropdown-vg">
                     <li>
-                        <a href="<?= isset($rootPath) ? $rootPath : '../' ?>pages/espace-utilisateur.php" class="dropdown-item">
+                        <a href="<?= $rootPath ?>pages/mon-compte.php" class="dropdown-item">
                             <i class="bi bi-person" aria-hidden="true"></i>
                             Mon espace
                         </a>
                     </li>
-                    <?php if ($_SESSION['utilisateur']['role'] === 'employe' || $_SESSION['utilisateur']['role'] === 'administrateur'): ?>
+                    <?php if (a_role('employe')): ?>
                         <li>
-                            <a href="<?= isset($rootPath) ? $rootPath : '../' ?>pages/espace-employe.php" class="dropdown-item">
+                            <a href="<?= $rootPath ?>pages/espace-employe.php" class="dropdown-item">
                                 <i class="bi bi-briefcase" aria-hidden="true"></i>
                                 Espace employé
                             </a>
                         </li>
                     <?php endif; ?>
-                    <?php if ($_SESSION['utilisateur']['role'] === 'administrateur'): ?>
+                    <?php if (a_role('admin')): ?>
                         <li>
-                            <a href="<?=  isset($rootPath) ? $rootPath : '../' ?>pages/espace-admin.php" class="dropdown-item">
+                            <a href="<?= $rootPath ?>pages/espace-admin.php" class="dropdown-item">
                                 <i class="bi bi-shield-lock" aria-hidden="true"></i>
                                 Administration
                             </a>
@@ -69,7 +71,7 @@
                     <?php endif; ?>
                     <li><hr class="dropdown-divider"></li>
                     <li>
-                        <a href="<?= isset($rootPath) ? $rootPath : '../' ?>pages/deconnexion.php" class="dropdown-item text-danger">
+                        <a href="<?= $rootPath ?>actions/deconnexion.php" class="dropdown-item text-danger">
                             <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
                             Se déconnecter
                         </a>

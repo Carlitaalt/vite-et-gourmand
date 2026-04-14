@@ -1,9 +1,12 @@
 <?php
+session_start();
+require_once '..includes/db.php';
+require_once '../includes/auth.php';
+
 $pageTitle = 'Mentions légales';
 $rootPath = '../';
 $currentPage = 'mentions-legales';
 
-require_once '..includes/db.php';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 ?>
