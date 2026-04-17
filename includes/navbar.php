@@ -53,19 +53,22 @@
                             Mon espace
                         </a>
                     </li>
-                    <?php if (a_role('employe')): ?>
-                        <li>
-                            <a href="<?= $rootPath ?>pages/espace-employe.php" class="dropdown-item">
-                                <i class="bi bi-briefcase" aria-hidden="true"></i>
-                                Espace employé
-                            </a>
-                        </li>
-                    <?php endif; ?>
-                    <?php if (a_role('admin')): ?>
+                    <?php
+                    $role = get_role();
+                    ?>
+
+                    <?php if ($role === 'administrateur'): ?>
                         <li>
                             <a href="<?= $rootPath ?>pages/espace-admin.php" class="dropdown-item">
                                 <i class="bi bi-shield-lock" aria-hidden="true"></i>
                                 Administration
+                            </a>
+                        </li>
+                    <?php elseif ($role === 'employe'): ?>
+                        <li>
+                            <a href="<?= $rootPath ?>pages/espace-employe.php" class="dropdown-item">
+                                <i class="bi bi-briefcase" aria-hidden="true"></i>
+                                Espace employé
                             </a>
                         </li>
                     <?php endif; ?>

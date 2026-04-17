@@ -1,3 +1,8 @@
+<?php
+$stmtFooter = $pdo->query("SELECT * FROM horaire ORDER BY horaire_id ASC");
+$listeHoraires = $stmtFooter->fetchAll();
+?>
+
 <footer class="footer" role="contentinfo">
     <div class="container">
         <div class="row gy-5">
@@ -18,34 +23,22 @@
                 Horaires d'ouverture
             </h2>
             <ul class="footer-horaires" aria-label="Horaires d'ouverture">
-                <li>
-                    <span class="footer-jour">Lundi</span>
-                    <span class="footer-heure">09h00 - 18h00</span>
-                </li>
-                <li>
-                    <span class="footer-jour">Mardi</span>
-                    <span class="footer-heure">09h00 - 18h00</span>
-                </li>
-                <li>
-                    <span class="footer-jour">Mercredi</span>
-                    <span class="footer-heure">09h00 - 18h00</span>
-                </li>
-                <li>
-                    <span class="footer-jour">Jeudi</span>
-                    <span class="footer-heure">09h00 - 18h00</span>
-                </li>
-                <li>
-                    <span class="footer-jour">Vendredi</span>
-                    <span class="footer-heure">09h00 - 20h00</span>
-                </li>
-                <li>
-                    <span class="footer-jour">Samedi</span>
-                    <span class="footer-heure">10h00 - 20h00</span>
-                </li>
-                <li>
-                    <span class="footer-jour">Dimanche</span>
-                    <span class="footer-heure">10h00 - 16h00</span>
-                </li>
+                <?php foreach($listeHoraires as $h): ?>
+                    <li>
+                        <span class="footer-jour"><?= htmlspecialchars($h['jour']) ?></span>
+                        <span class="footer-heure">
+                            <?php
+                            if(empty($h['heure_ouverture']) || $h['heure_ouverture'] == '00:00:00'){
+                                echo '<span class="text-danger">Fermé</span>';
+                            } else {
+                                $debut = date('H\hi', strtotime($h['heure_ouverture']));
+                                $fin = date('H\hi', strtotime($h['heure_fermeture']));
+                                echo $debut . " - " . $fin;
+                            }
+                            ?>
+                        </span>
+                    </li>
+                <?php endforeach; ?>
             </ul>
          </div>
 

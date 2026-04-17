@@ -1,4 +1,4 @@
-<?php 
+<?php
 session_start();
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
@@ -20,7 +20,7 @@ if(!empty($token) && isset($pdo)) {
         $stmt = $pdo->prepare("
         SELECT prt.*, u.prenom
         FROM password_reset_tokens prt
-        JOIN utilisateurs u ON u.utilisateur_id = prt.utilisateur_id
+        JOIN utilisateur u ON u.utilisateur_id = prt.utilisateur_id
         WHERE prt.token = :token
         AND prt.used = 0
         AND prt.expire_at > NOW()
@@ -35,12 +35,9 @@ if(!empty($token) && isset($pdo)) {
             $erreur = 'Ce lien est invalide ou a expiré. Veuillez faire une nouvelle demande.';
         }
     } catch (Exception $e) {
+        error_log($e->getMessage());
         $erreur = 'Une erreur est survenue. Veuillez réessayer.';
         }
-    }elseif (!empty($token) && !isset($pdo)) {
-        //Mode démo sans BDD
-        $tokenValide = true;
-        $resetData = ['prenom' => 'Utilisateur', 'utilisateur_id' => 0];
     } else {
         $erreur = 'Lien invalide. Veuillez refaire une demande de réintialisation.';
     }
@@ -59,13 +56,13 @@ if(!empty($token) && isset($pdo)) {
             $erreur = 'Le mot de passe doit contenir au moins 10 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.';
         } elseif ($mdp !== $mdp_conf) {
             $erreur = 'Les mots de passe ne correspondent pas.';
-        } elseif (isset($pdo)) {
+        } else {
             try {
                 $hash = password_hash($mdp, PASSWORD_DEFAULT);
 
                 //Mettre à jour le mot de passe
                 $pdo->prepare("
-                UPDATE utilisateurs SET mot_de_passe = :hash
+                UPDATE utilisateur SET mot_de_passe = :hash
                 WHERE utilisateur_id = :uid
                 ")->execute([
                     ':hash' => $hash,
@@ -81,12 +78,9 @@ if(!empty($token) && isset($pdo)) {
                 $succes = 'Votre mot de passe a été mis à jour avec succès !';
                 $tokenValide = false;
             } catch (Exception $e) {
+                error_log($e->getMessage());
                 $erreur = 'Une erreur est survenue. Veuillez réessayer.';
             }
-        } else {
-            //Mode démo sans BDD
-            $succes = 'Mode démo - mot de passe mis à jour avec succès !';
-            $tokenValide = false;
         }
     }
 ?>
@@ -104,7 +98,7 @@ if(!empty($token) && isset($pdo)) {
             </a>
             <p class="auth-brand_tagline">
                 <?php if ($tokenValide): ?>
-                    Choisissez un nouveau mot de passe sécurisé. 
+                    Choisissez un nouveau mot de passe sécurisé.
                 <?php else: ?>
                     Accédez à votre espace personnel.
                 <?php endif; ?>
@@ -118,7 +112,7 @@ if(!empty($token) && isset($pdo)) {
             <h1 class="auth-card__title">Nouveau mot de passe</h1>
             <?php if ($tokenValide): ?>
                 <p class="auth-card__sub">
-                    Bonjour <?= htmlspecialchars($resetData['prenom']) ?>, créez votre nouveau mot de passe ci-dessous. 
+                    Bonjour <?= htmlspecialchars($resetData['prenom']) ?>, créez votre nouveau mot de passe ci-dessous.
                 </p>
             <?php else: ?>
                 <p class="auth-card__sub">Réintialisation de votre accès</p>
@@ -211,7 +205,7 @@ if(!empty($token) && isset($pdo)) {
                          </div>
                          <span class="mdp-match-msg" id="mdp-match-msg"></span>
                          </div>
-                         <button type="submit" class="auth-btn" id="btn-submit" disabled>
+                         <button type="submit" class="auth-btn" id="btn-submit">
                             Enregistrez le mot de passe
                             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <polyline points="20 6 9 17 4 12"/>

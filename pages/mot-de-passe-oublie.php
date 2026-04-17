@@ -1,5 +1,9 @@
 <?php
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
 session_start();
+require_once __DIR__ . '/../vendor/autoload.php';
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
 
@@ -20,10 +24,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         $erreur = 'Veuillez saisir votre adresse e-mail.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $erreur = 'Adresse e-mail invalide.';
-    } elseif (isset($pdo)) {
+    } else {
         try {
             //Vérifier si l'email eviste en base
-            $stmt = $pdo->prepare("SELECT utilisateur_id, prenom FROM utilisateurs WHERE email = :email LIMIT 1");
+            $stmt = $pdo->prepare("SELECT utilisateur_id, prenom FROM utilisateur WHERE email = :email LIMIT 1");
             $stmt->execute([':email' => $email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -35,11 +39,11 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                 //Stocker le token en BDD
                 //Table attendue: password_reset_tokens (utilisateur_id, token, expire_at, used)
                 $pdo->prepare("DELETE FROM password_reset_tokens WHERE utilisateur_id = :uid")
-                ->execute([':iud' => $user['utilisateur_id']]);
+                ->execute([':uid' => $user['utilisateur_id']]);
 
                 $ins = $pdo->prepare("
                 INSERT INTO password_reset_tokens (utilisateur_id, token, expire_at, used)
-                VALUES (:uid, :token, :expire, O)
+                VALUES (:uid, :token, :expire, 0)
                 ");
                 $ins->execute([
                     ':uid' => $user['utilisateur_id'],
@@ -51,35 +55,42 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $lien = (isset($_SERVER['HTTPS']) ? 'https' : 'http')
                         . '://' . $_SERVER['HTTP_HOST']
                         . dirname($_SERVER['REQUEST_URI'])
-                        . '/reintialisation.php?token=' . $token;
+                        . '/reintialiser.php?token=' . $token;
 
-                //Envoi du mail
-                $destinataire = $email;
-                $sujet = 'Réintilisation de votre mot de passe - Vite & Gourmand';
-                $corps = 'Bonjour ' . $user['prenom'] . ",\n\n";
-                $corps .= "Vous avez demandé à réintialiser votre mot de passe. \n\n";
-                $corps .= "Cliquez sur le lien ci-dessous (valable 1 heure) :\n";
-                $corps .= $lien . "\n\n";
-                $corps .= "Si vous n'êtes pas à l'origine de cette demande, ignorez ce message. \n\n";
-                $corps .= "L'équipe Vite & Gourmand";
-                $headers = "From: noreply@viteetgourmand.fr\r\n";
-                $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+                //Envoi du mail via PHPMailer
+                $mail = new PHPMailer(true);
+                try {
+                    $mail->isSMTP();
+                    $mail->Host = 'sandbox.smtp.mailtrap.io';
+                    $mail->SMTPAuth = true;
+                    $mail->Port = 2525;
+                    $mail->Username = 'a42fbdd3effc59';
+                    $mail->Password = '6bbe288f32e485';
+                    $mail->CharSet = 'UTF-8';
 
-                mail($destinataire, $sujet, $crops, $headers);
-            }
+                    $mail->setFrom('noreply@viteetgourmand.fr', 'Vite & Gourmand');
+                    $mail->addAddress($email, $user['prenom']);
 
-            //Toujours afficher le même message (sécurité: ne pas révéler si l'email existe)
-            $succes = 'Si cette adresse est associé à un compte, vous recevrez un e-mail dans quelques instants.';
+                    $mail->isHTML(true);
+                    $mail->Subject = 'Réintialisation de votre mot de passe.';
+                    $mail->Body = "Bonjour {$user['prenom']}, <br><br>
+                                    Cliquez sur le lien pour changer votre mot de passe
+                                    <a href='$lien'>$lien</a><br><br>
+                                    Ce lien expire dans 1 heure.";
+                    $mail->send();
+                } catch (Exception $e){
+                    error_log("Erreur mail: " . $mail->ErrorInfo);
+                }
+    }
 
-        } catch (Exception $e) {
-            $erreur = 'Une erreur est survenue. Veuillez réessayer.';
-        }
-    } else {
-        //Mode démo sans BDD
-        $succes = 'Mode démo - un lien aurait été envoyé à ' . htmlspecialchars($email) . '.';
+    //Message de sécurité
+    $succes = 'Si cette adresse est associé à un compte, vous recevrez un e-mail sous peu.';
+} catch (Exception $e){
+    error_log($e->getMessage());
+    $erreur = 'Une erreur est survenue. Veuillez réessayer.';
+    }
     }
 }
-
 ?>
 
 <section class="section-auth">

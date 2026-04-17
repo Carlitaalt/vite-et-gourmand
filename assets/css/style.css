@@ -3382,14 +3382,14 @@ textarea:focus-visible {
 }
 
 .admin-role-badge {
-    background: #1a1a2e;
+    background: var(--vert-fonce);
     color: var(--or);
     border-color: var(--or);
 }
 
 .admin-badge {
-    background: #1a1a2e;
-    color: var(--or);
+    background: var(--or);
+    color: var(--vert-fonce);
 }
 
 .employe-stat-card--employes {

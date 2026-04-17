@@ -1,5 +1,6 @@
 <?php
 session_start();
+
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
 exiger_role('employe');
@@ -11,22 +12,29 @@ $currentPage = 'espace-employe';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
+//Données employé connecté
+$id_session = $_SESSION['user_id'] ?? null;
 
-$estConnecte = isset($_SESSION['employe_id']);
+if(!$id_session) {
+    header('Location: ' . $rootPath . 'pages/accueil.php');
+    exit();
+}
 
-// if (!estConnecte) {
-//     header('Location: ' . $rootPath . 'pages/connexion.php');
-//     exit();
-// }
+$sql = "SELECT u.prenom, u.nom, u.email, e.poste, e.date_embauche
+        FROM utilisateur u
+        INNER JOIN employes e ON u.utilisateur_id = e.utilisateur_id
+        WHERE u.utilisateur_id = :id";
 
-//Données fictives employé
-$employe  = [
-    'employe_id' => 1,
-    'prenom' => 'Jean',
-    'nom' => 'Dupont',
-    'email' => 'lucasmartin@gmail.com',
-    'role' => 'Chef de cuisine',
-];
+$stmt = $pdo->prepare($sql);
+$stmt->execute([':id' => $id_session]);
+$employe = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if(!$employe) {
+    die("Erreur: Votre compte est figuré comme employé, mais vous n'existez pas dans la table 'employes'. Veuillez contacter l'administrateur.");
+}
+
+$employe['role_display'] = $employe['poste'] ?? 'Employé';
+
 
 //Données fictives commandes
 $commandes = [
@@ -151,7 +159,7 @@ $avis = [
     ],
 ];
 
-//Données fictives plats 
+//Données fictives plats
 $plats = [
     ['plat_id' => 1, 'nom' => 'Foie gras maison',           'categorie' => 'Entrée',  'allergenes' => 'Gluten', 'actif' => true],
     ['plat_id' => 2, 'nom' => 'Velouté de champignons',     'categorie' => 'Entrée',  'allergenes' => 'Lait',   'actif' => true],
@@ -161,22 +169,11 @@ $plats = [
     ['plat_id' => 6, 'nom' => 'Sorbet fruits de saison',    'categorie' => 'Dessert', 'allergenes' => '—',      'actif' => false],
 ];
 
-//Données fictives menus 
+//Données fictives menus
 $menus = [
     ['menu_id' => 1, 'titre' => 'Le Grand Festin de Noël', 'prix_par_personne' => 32.00, 'nb_plats' => 6, 'actif' => true],
     ['menu_id' => 2, 'titre' => 'Menu Prestige Classique', 'prix_par_personne' => 22.50, 'nb_plats' => 4, 'actif' => true],
     ['menu_id' => 3, 'titre' => 'Printemps & Pâques', 'prix_par_personne' => 22.50, 'nb_plats' => 5, 'actif' => false],
-];
-
-//Données fictives horaires
-$horaires = [
-    ['jour' => 'Lundi',    'ouvert' => false, 'debut' => '',      'fin' => ''],
-    ['jour' => 'Mardi',    'ouvert' => true,  'debut' => '09:00', 'fin' => '18:00'],
-    ['jour' => 'Mercredi', 'ouvert' => true,  'debut' => '09:00', 'fin' => '18:00'],
-    ['jour' => 'Jeudi',    'ouvert' => true,  'debut' => '09:00', 'fin' => '20:00'],
-    ['jour' => 'Vendredi', 'ouvert' => true,  'debut' => '09:00', 'fin' => '20:00'],
-    ['jour' => 'Samedi',   'ouvert' => true,  'debut' => '10:00', 'fin' => '22:00'],
-    ['jour' => 'Dimanche', 'ouvert' => false, 'debut' => '',      'fin' => ''],
 ];
 
 //Labels et couleurs statuts
@@ -242,8 +239,47 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         case 'delete_plat':
             $succes = 'Plat supprimé avec succès.';
             break;
-        case 'update_horaire':
-            $succes = 'Horaires mis à jour avec succès.';
+        case 'update_horaires':
+            try {
+                $pdo->beginTransaction();
+
+                //Récupérer les données envoyé par le formulaire
+                foreach ($_POST['debut'] as $jour => $heure_ouv) {
+                    $heure_fer = $_POST['fin'][$jour];
+                    $estOuvert = isset($_POST['ouvert'][$jour]);
+
+                // Si la case n'est pas cochée, on force à 00:00
+                    if ($estOuvert) {
+                        $final_ouv = !empty($heure_ouv) ? $heure_ouv : '09:00:00';
+                        $final_fer = !empty($heure_fer) ? $heure_fer : '18:00:00';
+                    } else {
+                        $final_ouv = '00:00:00';
+                        $final_fer = '00:00:00';                        $heure_fer = '00:00:00';
+                    }
+
+                    $stmt = $pdo->prepare("UPDATE horaire SET heure_ouverture = ?, heure_fermeture = ? WHERE jour = ?");
+                    $stmt->execute([$final_ouv, $final_fer, $jour]);
+                }
+
+                $pdo->commit();
+                $succes = "Les horaires du restaurant ont été mis à jour avec succès.";
+
+                $stmtH = $pdo->query("SELECT * FROM horaire ORDER BY horaire_id ASC");
+                $rows = $stmtH->fetchAll(PDO::FETCH_ASSOC);
+                $horaires = [];
+                foreach($rows as $r){
+                    $horaires[] = [
+                        'horaire_id' => $r['horaire_id'],
+                        'jour' => $r['jour'],
+                        'ouvert' => ($r['heure_ouverture'] !== '00:00:00' && $r['heure_ouverture'] !== null),
+                        'debut' => $r['heure_ouverture'],
+                        'fin' => $r['heure_fermeture']
+                    ];
+                }
+            } catch (Exception $e) {
+                if($pdo->inTransaction()) $pdo->rollBack();
+                $erreur = "Erreur lors de la mise à jour : " . $e->getMessage();
+            }
             break;
     }
 }
@@ -840,11 +876,11 @@ $caTotal = array_sum(array_column(array_filter($commandes, fn($c) => $c['statut'
                                          style="<?= !$h['ouvert'] ? 'opacity:0.3; pointer-events:none;' : '' ?>">
                                         <input type="time" name="debut[<?= $h['jour'] ?>]"
                                                class="commande-input horaire-input"
-                                               value="<?= $h['debut'] ?>">
+                                               value="<?= date('H:i', strtotime($h['debut'])) ?>">
                                         <span class="horaire-sep">→</span>
                                         <input type="time" name="fin[<?= $h['jour'] ?>]"
                                                class="commande-input horaire-input"
-                                               value="<?= $h['fin'] ?>">
+                                               value="<?= date('H:i', strtotime($h['fin'])) ?>">
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -916,16 +952,16 @@ function filtrerCommandes() {
  
 // Toggle horaires
 function toggleHoraire(checkbox, jour) {
-    const heures = document.getElementById('heures-' + jour);
-    const label  = checkbox.closest('.horaire-toggle').querySelector('.horaire-toggle__label');
-    if (checkbox.checked) {
-        heures.style.opacity = '1';
-        heures.style.pointerEvents = 'auto';
-        label.textContent = 'Ouvert';
+    const container = document.getElementById('heures-' + jour);
+    const label = checkbox.nextElementSibling;
+
+    if(checkbox.checked) {
+        container.style.opacity = "1";
+        container.style.pointerEvents = "auto";
     } else {
-        heures.style.opacity = '0.3';
-        heures.style.pointerEvents = 'none';
-        label.textContent = 'Fermé';
+        container.style.opacity = "O.3";
+        container.style.pointerEvents = "none";
+        label.textContent = "Fermé";
     }
 }
 </script>

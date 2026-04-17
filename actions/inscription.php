@@ -19,6 +19,8 @@ $nom = trim($_POST['nom'] ?? '');
 $email = trim($_POST['email'] ?? '');
 $telephone = trim($_POST['telephone'] ?? '');
 $adresse = trim($_POST['adresse'] ?? '');
+$ville = trim($_POST['ville'] ?? '');
+$pays = trim($_POST['pays'] ?? '');
 $mdp = $_POST['mot_de_passe'] ?? '';
 $mdp_conf = $_POST['mot_de_passe_conf'] ?? '';
 
@@ -68,8 +70,8 @@ if(empty($erreur)) {
         $hash = password_hash($mdp, PASSWORD_DEFAULT);
 
         $stmt = $pdo->prepare("
-                                INSERT INTO utilisateur (role_id, prenom, nom, email, mot_de_passe, telephone, adresse_postale)
-                                VALUES (1, :prenom, :nom, :email, :mdp, :telephone, :adresse)
+                                INSERT INTO utilisateur (role_id, prenom, nom, email, mot_de_passe, telephone, adresse_postale, ville, pays)
+                                VALUES (1, :prenom, :nom, :email, :mdp, :telephone, :adresse, :ville, :pays)
                                 ");
         $stmt->execute([
             ':prenom' => $prenom,
@@ -78,6 +80,8 @@ if(empty($erreur)) {
             ':mdp' => $hash,
             ':telephone' => $telephone ?: null,
             ':adresse' => $adresse ?: null,
+            ':ville' => $ville ?: null,
+            ':pays' => $pays ?: null
         ]);
 
         //Mail de bienvenue
@@ -100,14 +104,18 @@ if(empty($erreur)) {
             $mail->isHTML(true);
             $mail->Subject = 'Bienvenue chez Vite & Gourmand !';
             $mail->Body = "
-            <div style='font-family: sans-serif; color: #333;'>
-                <h1 style='color: #27ae60;'>Bienvenue $prenom !</h1>
-                <p>Ton compte a été créé avec succès sur <strong>Vite & Gourmand</strong>.</p>
-                <p>Tu peux maintenant te connecter pour passer ta première commande.</p>
-                <br>
-                <p>À très bientôt !</p>
-            </div>
-            ";
+                <div style='font-family: sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;'>
+                    <h1 style='color: #27ae60;'>Bienvenue $prenom !</h1>
+                    <p>Ton compte a été créé avec succès sur <strong>Vite & Gourmand</strong>.</p>
+                    <p>Tu peux maintenant te connecter pour passer ta première commande en cliquant sur le bouton ci-dessous :</p>
+                    <div style='text-align: center; margin: 30px 0;'>
+                        <a href='http://localhost/vite-et-gourmand/pages/connexion.php' style='background-color: #27ae60; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;'>
+                            Me connecter
+                        </a>
+                    </div>
+                    <p>À très bientôt !</p>
+                </div>
+";
 
             $mail->send();
         } catch(Exception $e) {
@@ -127,6 +135,6 @@ if(empty($erreur)) {
 $_SESSION['erreur_inscription'] = $erreur;
 
 //Renvoyer les champs pour re-remplir le formulaire
-$_SESSION['form_inscription'] = compact('prenom', 'nom', 'email', 'telephone', 'adresse');
+$_SESSION['form_inscription'] = compact('prenom', 'nom', 'email', 'telephone', 'adresse', 'ville', 'pays');
 header('Location: ../pages/inscription.php');
 exit;

@@ -1,7 +1,12 @@
-<?php 
+<?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 session_start();
+
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
+
 exiger_role('administrateur');
 
 $pageTitle = 'Espace Administrateur';
@@ -11,161 +16,181 @@ $curentPage = 'espace-admin';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
+$erreur = '';
+$succes = '';
 
-$estConnecte = isset($_SESSION['user_id']);
 
-// if(!estConnecte) {
-//     header('Location: ' . $rootPath . 'connexion.php');
-//     exit();
-// }
+if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    switch ($_POST['action']) {
+        case 'creer_employe':
+            $prenom = trim($_POST['prenom']);
+            $nom = trim($_POST['nom']);
+            $email = trim($_POST['email']);
+            $poste = trim($_POST['role']);
+            $telephone = trim($_POST['telephone']);
+            $adresse_postale = trim($_POST['adresse']);
+            $ville = trim($_POST['ville']);
+            $salaire = $_POST['salaire'] ?? 0;
+            $mdp = password_hash($_POST['password'], PASSWORD_DEFAULT);
 
-//Données fictives admin
-$admin = [
-    'admin_id' => 1,
-    'prenom' => 'José',
-    'nom' => 'Ferreira',
-    'email' => 'jose.ferreira@juliescatering.fr',
-    'role' => 'Administrateur',
-];
+            try {
+                $pdo->beginTransaction();
+                //Insertion table utilisateur
+                $stmt = $pdo->prepare("INSERT INTO utilisateur (prenom, nom, email, mot_de_passe, telephone, adresse_postale, ville, pays, role_id, actif, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'France', 2, 1, NOW(), NOW())");
+                $stmt->execute([$prenom, $nom, $email, $mdp, $telephone, $adresse_postale, $ville]);
 
-//Données fictives employés
-$employes = [
-    [
-        'employe_id' => 1,
-        'prenom' => 'Lucas',
-        'nom' => 'Martin',
-        'email' => 'lucas.martin@juliescatering.fr',
-        'role' => 'Chef de cuisine',
-        'actif' => true,
-        'created_at' => '2025-01-15 09:00:00',
-        'last_login' => '2026-04-08 14:32:00',
-    ],
-    [
-        'employe_id' => 2,
-        'prenom' => 'Camille',
-        'nom' => 'Rousseau',
-        'email' => 'camille.rousseau@juliescatering.fr',
-        'actif' => true,
-        'created_at' => '2025-03_10 10:00:00',
-        'last_login' => '2026-04-07 09:15:00',
-    ],
-    [
-        'employe_id' => 3,
-        'prenom' => 'Thomas',
-        'nom' => 'Petit',
-        'email' => 'thomas.petit@juliescatering.fr',
-        'role' => 'Cuisinier',
-        'actif' => false,
-        'created_at' => '2025-06-01 08:30:00',
-        'last_login' => '2025-12-20 11:00:00',
-    ],
-];
+                $new_id = $pdo->lastInsertId();
 
-//Données fictives commandes (même structure que employé)
-$commandes = [
-    [
-        'commande_id' => 1001,
-        'client_prenom' => 'Marie',
-        'client_nom' => 'Dupont',
-        'client_email' => 'marie.dupont@email.com',
-        'client_telephone' => '06 12 34 56 78',
-        'menu_titre' => 'Le Grand Festin de Noël',
-        'nb_personnes' => 12,
-        'date_prestation' => '2026-12-24',
-        'heure_prestation' => '19:00',
-        'adresse_prestation' => '5 allée des Pins, 33000 Bordeaux',
-        'prix_total' => 384.00,
-        'statut' => 'en_attente',
-        'created_at' => '2026-11-10 14:32:00',
-        'materiel_prete' => true,
-        'historique' => [
-            ['statut' => 'en_attente', 'date' => '2026-11-10 14:32:00', 'auteur' => 'Système'],
-        ],
-    ],
-[
-    'commande_id' => 1002, 
-    'client_prenom' => 'Jean',
-    'client_nom' => 'Leclerc',
-    'client_email' => 'jean.leclerc@email.com',
-    'client_telephone' => '06 98 76 54 32',
-    'menu_titre' => 'Menu Prestige Classique',
-    'nb_personnes' => 20, 
-    'date_prestation' => '2026-09-15',
-    'heure_prestation' => '12:30',
-    'adresse_prestation' => '18 rue du Château, 33100 Bordeaux',
-    'prix_total' => 450.00,
-    'statut' => 'terminee',
-    'created_at' => '2026-08-01 10:00:00',
-    'materiel_prete' => false,
-    'historique' => [
-        ['statut' => 'en_attente', 'date' => '2026-08-01 10:00:00', 'auteur' => 'Système'],
-        ['statut' => 'accepte', 'date' => '2026-08-02 09:15:00', 'auteur' => 'Lucas Martin'],
-        ['statut' => 'terminee', 'date' => '2026-09-15 13:00:00', 'auteur' => 'Lucas Martin'],
-    ],
-],
-[
-        'commande_id'        => 1003,
-        'client_prenom'      => 'Sophie',
-        'client_nom'         => 'Bernard',
-        'client_email'       => 'sophie.b@email.com',
-        'client_telephone'   => '07 11 22 33 44',
-        'menu_titre'         => 'Printemps & Pâques',
-        'nb_personnes'       => 8,
-        'date_prestation'    => '2026-04-20',
-        'heure_prestation'   => '13:00',
-        'adresse_prestation' => '3 impasse des Lilas, 33200 Bordeaux',
-        'prix_total'         => 180.00,
-        'statut'             => 'terminee',
-        'created_at'         => '2026-03-15 16:45:00',
-        'materiel_prete'     => false,
-        'historique'         => [
-            ['statut' => 'en_attente',  'date' => '2026-03-15 16:45:00', 'auteur' => 'Système'],
-            ['statut' => 'accepte',     'date' => '2026-03-16 10:00:00', 'auteur' => 'Lucas Martin'],
-            ['statut' => 'terminee',    'date' => '2026-04-20 13:10:00', 'auteur' => 'Lucas Martin'],
-        ],
-    ],
-    [
-        'commande_id'        => 1004,
-        'client_prenom'      => 'Pierre',
-        'client_nom'         => 'Moreau',
-        'client_email'       => 'pierre.moreau@email.com',
-        'client_telephone'   => '06 55 44 33 22',
-        'menu_titre'         => 'Le Grand Festin de Noël',
-        'nb_personnes'       => 30,
-        'date_prestation'    => '2026-05-10',
-        'heure_prestation'   => '19:30',
-        'adresse_prestation' => '7 avenue Victor Hugo, 33000 Bordeaux',
-        'prix_total'         => 960.00,
-        'statut'             => 'terminee',
-        'created_at'         => '2026-04-01 09:00:00',
-        'materiel_prete'     => true,
-        'historique'         => [
-            ['statut' => 'en_attente', 'date' => '2026-04-01 09:00:00', 'auteur' => 'Système'],
-            ['statut' => 'accepte',    'date' => '2026-04-02 10:00:00', 'auteur' => 'Lucas Martin'],
-            ['statut' => 'terminee',   'date' => '2026-05-10 20:00:00', 'auteur' => 'Lucas Martin'],
-        ],
-    ],
-    [
-        'commande_id'        => 1005,
-        'client_prenom'      => 'Claire',
-        'client_nom'         => 'Dubois',
-        'client_email'       => 'claire.dubois@email.com',
-        'client_telephone'   => '06 33 22 11 00',
-        'menu_titre'         => 'Menu Prestige Classique',
-        'nb_personnes'       => 15,
-        'date_prestation'    => '2026-03-01',
-        'heure_prestation'   => '12:00',
-        'adresse_prestation' => '2 rue de la Liberté, 33000 Bordeaux',
-        'prix_total'         => 337.50,
-        'statut'             => 'terminee',
-        'created_at'         => '2026-02-01 10:00:00',
-        'materiel_prete'     => false,
-        'historique'         => [
-            ['statut' => 'en_attente', 'date' => '2026-02-01 10:00:00', 'auteur' => 'Système'],
-            ['statut' => 'terminee',   'date' => '2026-03-01 13:00:00', 'auteur' => 'Camille Rousseau'],
-        ],
-    ],
-];
+                //Insertion table employes
+                $stmt = $pdo->prepare("INSERT INTO employes (utilisateur_id, poste, salaire_horaire, date_embauche) VALUES (?, ?, ?, CURDATE())");
+                $stmt->execute([$new_id, $poste, $salaire]);
+
+                $pdo->commit();
+                $succes = "Le compte employé de $prenom a été créé.";
+
+                $stmt = $pdo->query("SELECT u.utilisateur_id as employe_id, u.prenom, u.nom, u.email, u.telephone, e.poste as role, e.salaire_horaire, u.actif, u.created_at, u.updated_at FROM utilisateur u INNER JOIN employes e ON u.utilisateur_id = e.utilisateur_id WHERE u.role_id = 2");
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                $erreur = "Erreur lors de la création : " . $e->getMessage();
+            }
+            break;
+
+            case 'toggle_employe':
+            $stmt = $pdo->prepare("UPDATE utilisateur SET actif = ? WHERE utilisateur_id = ?");
+            $stmt->execute([$_POST['actif'], $_POST['employe_id']]);
+            $succes = "Statut de l'employé mis à jour.";
+            break;
+
+            case 'modifier_employe':
+            $emp_id = $_POST['employe_id'];
+            $salaire = $_POST['salaire'];
+            $poste = $_POST['poste'];
+            $actif = isset($_POST['actif']) ? $_POST['actif'] : 1;
+
+            try {
+                $pdo->beginTransaction();
+                //Update de l'activation dans utilisateur
+                $stmt1 = $pdo->prepare("UPDATE utilisateur SET actif = ? WHERE utilisateur_id = ?");
+                $stmt1->execute([$actif, $emp_id]);
+
+                //Update du salaire et poste dans employes
+                $stmt2 = $pdo->prepare("UPDATE employes SET salaire_horaire = ?, poste = ? WHERE utilisateur_id = ?");
+                $stmt2->execute([$salaire, $poste, $emp_id]);
+
+                $pdo->commit();
+                $succes = "Fiche employé mise à jour.";
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                $erreur = "Erreur de mise à jour: " . $e->getMessage();
+            }
+            break;
+
+            case 'update_horaires':
+                try {
+                    $pdo->beginTransaction();
+                    foreach($_POST['debut'] as $jour => $heure_ouv) {
+                        $heure_fer = $_POST['fin'][$jour];
+                        $estOuvert = isset($_POST['ouvert'][$jour]);
+
+                        if($estOuvert){
+                            $final_ouv = !empty($heure_ouv) ? $heure_ouv : '09:00:00';
+                            $final_fer = !empty($heure_fer) ? $heure_fer : '18:00:00';
+                        } else {
+                            $final_ouv = '00:00:00';
+                            $final_fer = '00:00:00';
+                        }
+
+                        $stmt = $pdo->prepare("UPDATE horaire SET heure_ouverture = ?, heure_fermeture = ? WHERE jour = ?");
+                        $stmt->execute([$final_ouv, $final_fer, $jour]);
+                    }
+                    $pdo->commit();
+                    $succes = "Les horaires du restaurant ont été mis à jour avec succès.";
+                } catch (Exception $e) {
+                    if($pdo->inTransaction()) $pdo->rollBack();
+                    $erreur = "Erreur lors de la mise à jour : " . $e->getMessage();
+                }
+                break;
+    }
+}
+
+//Récupération des vrais horaires depuis la BDD pour l'affichage
+$stmtH = $pdo->query("SELECT * FROM horaire ORDER BY horaire_id ASC");
+$rows = $stmtH->fetchAll(PDO::FETCH_ASSOC);
+$horaires = [];
+foreach($rows as $r){
+    $ouvert = ($r['heure_ouverture'] !== '00:00:00' && !empty($r['heure_ouverture']));
+
+    $horaires[] = [
+        'jour' => $r['jour'],
+        'ouvert' => $ouvert,
+        'debut' => $r['heure_ouverture'],
+        'fin' => $r['heure_fermeture']
+    ];
+}
+
+//Infos de l'admin connecté
+$stmt = $pdo->prepare("SELECT u.prenom, u.nom, u.email, r.libelle as role
+                    FROM utilisateur u
+                    JOIN role r ON u.role_id = r.role_id
+                    WHERE u.utilisateur_id = ?");
+$stmt->execute([$_SESSION['user_id']]);
+$admin = $stmt->fetch();
+
+//Liste des employés
+$stmt = $pdo->query("
+        SELECT u.utilisateur_id as employe_id, u.prenom, u.nom, u.email, u.telephone, e.poste as role, e.salaire_horaire, u.actif, u.created_at, u.updated_at
+        FROM utilisateur u
+        INNER JOIN employes e ON u.utilisateur_id = e.utilisateur_id
+        WHERE u.role_id = 2
+        ");
+$employes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+//Récupération des statuts
+$statutsQuery = $pdo->query("SELECT * FROM statut");
+$statutsData = $statutsQuery->fetchAll(PDO::FETCH_ASSOC);
+
+$statutLabels = [];
+foreach($statutsData as $st){
+    $statutLabels[$st['statut_id']] = $st['libelle'];
+}
+
+try {
+    $sqlCommandes = "SELECT
+        c.commande_id,
+        c.date_commande,
+        c.date_prestation,
+        c.heure_livraison,
+        c.adresse_livraison,
+        c.ville_livraison,
+        c.nombre_personnes,
+        c.prix_total,
+        c.statut_id,
+        c.pret_materiel,
+        u.prenom AS client_prenom,
+        u.nom AS client_nom,
+        u.email AS client_email,
+        u.telephone AS client_telephone,
+        m.titre AS menu_titre
+    FROM commande c
+    INNER JOIN utilisateur u ON c.utilisateur_id = u.utilisateur_id
+    INNER JOIN commande_menu cm ON c.commande_id = cm.commande_id
+    INNER JOIN menu m ON cm.menu_id = m.menu_id
+    GROUP BY c.commande_id
+    ORDER BY c.date_commande DESC";
+
+    $stmt = $pdo->query($sqlCommandes);
+    $commandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    // En production, on évite le die() sauvage, mais pour tes tests c'est parfait
+    echo "<div style='color:red; background:white; padding:10px; border:1px solid red;'>";
+    echo "<strong>Erreur SQL :</strong> " . $e->getMessage();
+    echo "</div>";
+}
+
+
+
+
 
 //Avis (même que employé)
 $avis = [
@@ -208,16 +233,18 @@ $plats = [
     ['plat_id' => 6, 'nom' => 'Sorbet fruits de saison', 'categorie' => 'Dessert', 'allergenes' => '—',                   'actif' => false],
 ];
 
-//Horaires
-$horaires = [
-    ['jour' => 'Lundi',    'ouvert' => false, 'debut' => '',      'fin' => ''],
-    ['jour' => 'Mardi',    'ouvert' => true,  'debut' => '09:00', 'fin' => '18:00'],
-    ['jour' => 'Mercredi', 'ouvert' => true,  'debut' => '09:00', 'fin' => '18:00'],
-    ['jour' => 'Jeudi',    'ouvert' => true,  'debut' => '09:00', 'fin' => '20:00'],
-    ['jour' => 'Vendredi', 'ouvert' => true,  'debut' => '09:00', 'fin' => '20:00'],
-    ['jour' => 'Samedi',   'ouvert' => true,  'debut' => '10:00', 'fin' => '22:00'],
-    ['jour' => 'Dimanche', 'ouvert' => false, 'debut' => '',      'fin' => ''],
-];
+//Récupération des vrais horaires depuis la BDD
+$stmtH = $pdo->query("SELECT * FROM horaire ORDER BY horaire_id ASC");
+$rows = $stmtH->fetchAll(PDO::FETCH_ASSOC);
+$horaires = [];
+foreach($rows as $r){
+    $horaires[] = [
+        'jour' => $r['jour'],
+        'ouvert' => ($r['heure_ouverture'] !== '00:00:00' && !empty($r['heure_ouverture'])),
+        'debut' => $r['heure_ouverture'],
+        'fin' => $r['heure_fermeture']
+    ];
+}
 
 //Labels et couleurs statuts
 $statutLabels = [
@@ -272,47 +299,6 @@ foreach($commandes as $cmd) {
     }
 }
 
-//Traitement POST
-$erreur = '';
-$succes = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    switch ($_POST['action']) {
-        case 'creer_employe':
-            $succes = 'Compte employé créé pour ' . htmlspecialchars($_POST['email'] ?? '') . '. Un e-mail de notification lui a été envoyé.';
-            break;
-        case 'toggle_employe':
-            $succes = 'Statut du compte employé mis à jour.';
-            break;
-        case 'update_statut':
-            $succes = 'Statut de la commande #' . (int)($_POST['commande_id'] ?? 0) . ' mis à jour.';
-            break;
-        case 'annuler_commande':
-            $succes = 'Commande #' . (int)($_POST['commande_id'] ?? 0) . ' annulée.';
-            break;
-        case 'valider_avis':
-            $succes = 'Avis publié avec succès.';
-            break;
-        case 'refuser_avis':
-            $succes = 'Avis refusé.';
-            break;
-        case 'update_menu':
-            $succes = 'Menu mis à jour.';
-            break;
-        case 'delete_menu':
-            $succes = 'Menu supprimé.';
-            break;
-        case 'update_plat':
-            $succes = 'Plat mis à jour.';
-            break;
-        case 'delete_plat':
-            $succes = 'Plat supprimé.';
-            break;
-        case 'update_horaires':
-            $succes = 'Horaires mis à jour.';
-            break;
-    }
-}
 ?>
 
 <section class="section-compte section-employe section-admin">
@@ -444,17 +430,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     <label class="commande-label">Rôle</label>
                     <input type="text" name="role" class="commande-input" placeholder="Ex : Chef de cuisine">
                 </div>
+            </div>
+            <div class="commande-field-row">
+                <div class="commande-field">
+                    <label class="commande-label">Téléphone</label>
+                    <input type="text" name="telephone" placeholder="06 00 00 00 00" class="commande-input">
                 </div>
-                <div class="commande-field-row">
-                    <div class="commande-field">
-                        <label class="commande-label">Mot de passe *</label>
-                        <input type="password" name="password" class="commande-input" placeholder="••••••••" required>
-                    </div>
-                    <div class="commande-field">
-                        <label class="commande-label">Confirmer le mot de passe *</label>
-                        <input type="password" name="password_confirm" class="commande-input" placeholder="••••••••" required>
-                    </div>
+                <div class="commande-field">
+                    <label class="commande-label">Adresse Postal</label>
+                    <input type="text" name="adresse" placeholder="12 rue des Lilas" class="commande-input">
                 </div>
+            </div>
+            <div class="commande-field-row">
+                <div class="commande-field">
+                    <label class="commande-label">Ville</label>
+                    <input type="text" name="ville" placeholder="Bordeaux" class="commande-input">
+                </div>
+                <div class="commande-field">
+                    <label class="commande-label">Salaire horaire</label>
+                    <input type="number" step="0.01" name="salaire" placeholder="Salaire horaire (ex: 13.50)" class="commande-input">
+                </div>
+            </div>
+            <div class="commande-field-row">
+                <div class="commande-field">
+                    <label class="commande-label">Mot de passe *</label>
+                    <input type="password" name="password" class="commande-input" placeholder="••••••••" required>
+                </div>
+                <div class="commande-field">
+                    <label class="commande-label">Confirmer le mot de passe *</label>
+                    <input type="password" name="password_confirm" class="commande-input" placeholder="••••••••" required>
+                </div>
+            </div>
                 <div class="modif-form__actions">
                     <button type="submit" class="btn btn-vg-primary">Créer le compte</button>
                     <button type="button" class="btn btn-vg-secondary"
@@ -484,12 +490,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         <span><?= htmlspecialchars($emp['role']) ?></span>
                     </div>
                     <div class="admin-employe-dates">
-                        Créé le <?= date('d/m/Y', strtotime($emp['created_at'])) ?>
-                        · Dernière connexion : <?= date('d/m/Y à H:i', strtotime($emp['last_login'])) ?>
+                        Membre depuis le <?= date('d/m/Y', strtotime($emp['created_at'])) ?>
+                        · Dernière modif : <?= date('d/m/Y à H:i', strtotime($emp['updated_at'])) ?>
                     </div>
                 </div>
             </div>
             <div class="admin-employe-card__actions">
+                <button type="button" class="btn-compte-action btn-compte-action--modifier" onclick="document.getElementById('edit-form-<?= $emp['employe_id'] ?>').style.display='flex'">
+                    ✎ Modifier
+                </button>
+
                 <form method="POST" action="" style="display:inline;"
                     onsubmit="return confirm('<?= $emp['actif'] ? 'Désactiver' : 'Réactiver' ?> ce compte employé ?')">
                     <input type="hidden" name="action" value="toggle_employe">
@@ -499,6 +509,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         <?= $emp['actif'] ? '✕ Désactiver' : '✓ Réactiver' ?>
                     </button>
                 </form>
+
+                <div id="edit-form-<?= $emp['employe_id'] ?>" class="admin-modal-overlay" style="display:none;">
+                    <div class="admin-modal-content">
+                        <form method="POST">
+                            <input type="hidden" name="action" value="modifier_employe">
+                            <input type="hidden" name="employe_id" value="<?= $emp['employe_id'] ?>">
+                            <h3>Modifier la fiche de <?= htmlspecialchars($emp['prenom']) ?></h3>
+
+                            <div class="commande-field">
+                                <label class="commande-label">Poste actuel</label>
+                                <input type="text" name="poste" value="<?= htmlspecialchars($emp['role']) ?>" class="commande-input" required>
+                            </div>
+
+                            <div class="commande-field">
+                                <label class="commande-label">Salaire horaire (€)</label>
+                                <input type="number" step="0.01" name="salaire" value="<?= $emp['salaire_horaire'] ?>" class="commande-input" required>
+                            </div>
+
+                            <div class="modif-form__actions">
+                                <button type="submit" class="btn btn-vg-primary">Enregistrer les modifications</button>
+                                <button type="button" class="btn btn-vg-secondary" onclick="document.getElementById('edit-form-<?= $emp['employe_id'] ?>').style.display='none';">Annuler</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
         <?php endforeach; ?>
@@ -983,10 +1018,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                     <div class="horaire-heures" id="heures-<?= $h['jour'] ?>"
                                          style="<?= !$h['ouvert'] ? 'opacity:0.3; pointer-events:none;' : '' ?>">
                                         <input type="time" name="debut[<?= $h['jour'] ?>]"
-                                               class="commande-input horaire-input" value="<?= $h['debut'] ?>">
+                                               class="commande-input horaire-input" value="<?= date('H:i', strtotime($h['debut'])) ?>">
                                         <span class="horaire-sep">→</span>
                                         <input type="time" name="fin[<?= $h['jour'] ?>]"
-                                               class="commande-input horaire-input" value="<?= $h['fin'] ?>">
+                                               class="commande-input horaire-input" value="<?= date('H:i', strtotime($h['fin'])) ?>">
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -1007,6 +1042,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
  
 <script>
+
+//Disparition automatique des alertes après 5 secondes
+const alerts = document.querySelectorAll('.auth-alert');
+alerts.forEach(alert => {
+    setTimeout(() => {
+        alert.style.transition = "opacity 0.5s ease";
+        alert.style.opacity = "0";
+        setTimeout(() => alert.remove(), 500);
+    }, 5000);
+});
+
+const tabs = document.querySelectorAll('.compte-tab');
+tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        alerts.forEach(alert => alert.remove());
+    });
+});
+
 // Données pour le graphique (injectées depuis PHP)
 const donneesMenus = <?= json_encode(array_map(fn($titre, $stats) => [
     'titre'        => $titre,

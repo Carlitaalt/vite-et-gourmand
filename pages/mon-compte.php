@@ -11,7 +11,6 @@ $currentPage = 'mon-compte';
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
-session_start();
 $estConnecte = isset($_SESSION['user_id']);
 
 //if(!$estConnecte) {
@@ -19,15 +18,17 @@ $estConnecte = isset($_SESSION['user_id']);
    // exit;
 //}
 
-//Données fictives utilisateurs
-$user = [
-    'utilisateur_id' => 1,
-    'prenom' => 'Marie',
-    'nom' => 'Dupont',
-    'email' => 'marie.dupont@email.com',
-    'telephone' => '06 12 34 56 78',
-    'adresse' => '12 rue des Roses, 33000 Bordeaux',
-];
+//Données utilisateurs
+$stmt = $pdo->prepare("SELECT * FROM utilisateur WHERE utilisateur_id = :id");
+$stmt->execute([':id' => $_SESSION['user_id']]);
+$user = $stmt->fetch();
+
+//Si l'utilisateur n'existe pas
+if(!$user) {
+    header('Location: ' . $rootPath . 'actions/deconnexion.php');
+    exit;
+}
+
 
 //Données fictives commandes
 $commandes = [
@@ -123,7 +124,31 @@ $succes = '';
 //Traitement formulaire infos
 if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if($_POST['action'] === 'update_infos') {
+        $update = $pdo->prepare("
+        UPDATE utilisateur
+        SET prenom = :prenom, nom = :nom, email = :email, telephone = :tel, adresse_postale = :adresse, ville = :ville, pays = :pays
+        WHERE utilisateur_id = :id
+        ");
+        $update->execute([
+            ':prenom' => $_POST['prenom'],
+            ':nom' => $_POST['nom'],
+            ':email' => $_POST['email'],
+            ':tel' => $_POST['telephone'],
+            ':adresse' => $_POST['adresse'],
+            ':ville' => $_POST['ville'],
+            ':pays' => $_POST['pays'],
+            ':id' => $_SESSION['user_id']
+        ]);
+
+        //Mise à jour de la session pour la navbar
+        $_SESSION['user_prenom'] = $_POST['prenom'];
+
         $succes = 'Vos informations ont été mise à jour.';
+
+        //Recharge les infos pour l'affichage
+        $stmt = $pdo->prepare("SELECT * FROM utilisateur WHERE utilisateur_id = :id");
+        $stmt->execute([':id' => $_SESSION['user_id']]);
+        $user = $stmt->fetch();
     } elseif ($_POST['action'] === 'annuler_commande') {
         $succes = 'Commande #' . (int)$_POST['commande_id'] . 'annulée.';
     } elseif ($_POST['action'] === 'modifier_commande') {
@@ -131,12 +156,23 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     } elseif ($_POST['action'] === 'donner_avis') {
         $succes = 'Votre avis a été soumis et sera visible après validation.';
     } elseif ($_POST['action'] === 'supprimer_compte') {
-    session_destroy();
-    header('Location: ' . $rootPath . 'pages/accueil.php');
-    exit;
+        try {
+            //Suppression dans la base de données
+            $delete = $pdo->prepare("DELETE FROM utilisateur WHERE utilisateur_id = :id");
+            $delete->execute([':id' => $_SESSION['user_id']]);
+
+            //Nettoyage session
+            $_SESSION = [];
+            session_destroy();
+
+            //Redirection vers l'accueil avec message
+            header('Location: ' . $rootPath . 'pages/accueil.php?msg=compte_supprime');
+            exit;
+        } catch(PDOException $e) {
+            $erreur = "Impossible de supprimer le compte. Il est possible que vous ayez des commandes liées à ce compte.";
+        }
     }
 }
-
 ?>
 
 <section class="section-compte">
@@ -464,7 +500,23 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                 <label for="" class="auth-label">Adresse postale</label>
                                 <div class="auth-input-wrap">
                                     <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                                    <input type="text" name="adresse" class="auth-input" value="<?= htmlspecialchars($user['adresse']) ?>">
+                                    <input type="text" name="adresse" class="auth-input" value="<?= htmlspecialchars($user['adresse_postale']) ?>">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="auth-field-row">
+                            <div class="auth-field">
+                                <label class="auth-label">Ville</label>
+                                <div class="auth-input-wrap">
+                                    <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
+                                    <input type="text" name="ville" class="auth-input" value="<?= htmlspecialchars($user['ville'] ?? '') ?>">
+                                </div>
+                            </div>
+                            <div class="auth-field">
+                                <label class="auth-label">Pays</label>
+                                <div class="auth-input-wrap">
+                                    <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                                    <input type="text" name="pays" class="auth-input" value="<?= htmlspecialchars($user['pays'] ?? '') ?>">
                                 </div>
                             </div>
                         </div>

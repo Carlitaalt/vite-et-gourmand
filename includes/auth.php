@@ -33,6 +33,10 @@ function get_role(): ?string {
     return $_SESSION['user_role'] ?? null;
 }
 
+function a_role_exact(string $role_nom): bool {
+    return get_role() === $role_nom;
+}
+
 function a_role(string $role_requis): bool {
     $hierarchie = [
         'utilisateur' => 1,
@@ -42,6 +46,9 @@ function a_role(string $role_requis): bool {
 
     $role_actuel = get_role();
     if($role_actuel === null) return false;
+
+    if($role_requis === "admin") $role_requis = 'administrateur';
+    if($role_requis === "utilisateur") $role_requis = 'client';
 
     $niveau_actuel = $hierarchie[$role_actuel] ?? 0;
     $niveau_requis = $hierarchie[$role_requis] ?? 99;
