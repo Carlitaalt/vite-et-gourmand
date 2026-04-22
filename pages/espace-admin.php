@@ -1,4 +1,5 @@
 <?php
+ob_start();
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -48,9 +49,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $pdo->commit();
                 $succes = "Le compte employé de $prenom a été créé.";
 
-                $stmt = $pdo->query("SELECT u.utilisateur_id as employe_id, u.prenom, u.nom, u.email, u.telephone, e.poste as role, e.salaire_horaire, u.actif, u.created_at, u.updated_at FROM utilisateur u INNER JOIN employes e ON u.utilisateur_id = e.utilisateur_id WHERE u.role_id = 2");
             } catch (Exception $e) {
-                $pdo->rollBack();
+                if($pdo->inTransaction()) $pdo->rollBack();
                 $erreur = "Erreur lors de la création : " . $e->getMessage();
             }
             break;
@@ -80,14 +80,115 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $pdo->commit();
                 $succes = "Fiche employé mise à jour.";
             } catch (Exception $e) {
-                $pdo->rollBack();
+                if($pdo->inTransaction()) $pdo->rollBack();
                 $erreur = "Erreur de mise à jour: " . $e->getMessage();
             }
             break;
 
+            case 'update_menu':
+                $titre = trim($_POST['titre']);
+                $prix = $_POST['prix'];
+                $nb_pers_min = $_POST['nb_personnes_min'] ?? 1;
+                $actif = isset($_POST['actif']) ? $_POST['actif'] : 1;
+                $menu_id = (!empty($_POST['menu_id'])) ? (int)$_POST['menu_id'] : null;
+                
+                try {
+                    if($menu_id) {
+                        $sql = "UPDATE menu SET titre = ?, prix_par_personne = ?, nombre_personne_minimum = ?,  actif = ?, updated_at = NOW() WHERE menu_id = ?";
+                        $stmt = $pdo->prepare($sql);
+                        $stmt->execute([$titre, $prix, $nb_pers_min, $actif, $menu_id]);
+                        $succes = "Le menu '" . htmlspecialchars($titre) . "' a été mis à jour.";
+                    } else {
+                    //Création d'un nouveau menu
+                        $sql = "INSERT INTO menu (titre, prix_par_personne, nombre_personne_minimum, actif, theme_id, description, conditions, regime_id, created_at, updated_at) VALUES (?, ?, 1, NULL, NULL, '', '', 1, NOW(), NOW())";
+                        $stmt = $pdo->prepare($sql);
+                        $stmt->execute([$titre, $prix, $nb_pers_min, $actif]);
+                    }
+                    $succes = "Le nouveau menu a été crée.";
+                } catch(PDOException $e){
+                    $erreur = "Erreur SQL : " . $e->getMessage();
+                }
+                break;
+
+            case 'delete_menu':
+                $menu_id = (int)$_POST['menu_id'];
+                try {
+                    $pdo->beginTransaction();
+                    $pdo->prepare("DELETE FROM menu_plat WHERE menu_id = ?")->execute([$menu_id]);
+                    $pdo->prepare("DELETE FROM menu WHERE menu_id = ?")->execute([$menu_id]);
+
+                    $pdo->commit();
+                    $succes ="Menu supprimé avec succès.";
+                } catch (Exception $e) {
+                    if($pdo->inTransaction()) $pdo->rollBack();
+                    $erreur = "Impossible de supprimer : ce menu est probablement lié à des commandes existantes.";
+                }
+                break;
+                
+            case 'update_plat':
+                $titre = !empty($_POST['titre_plat']) ? trim($_POST['titre_plat']) : '';
+                $desc = !empty($_POST['description']) ? trim($_POST['description']) : '';
+                $cat = !empty($_POST['categorie']) ? trim($_POST['categorie']) : 'Plat';
+                $menu_id = !empty($_POST['menu_id']) ? (int)$_POST['menu_id'] : null;
+                $actif = isset($_POST['actif']) ? (int)$_POST['actif'] : 1;
+                $plat_id = !empty($_POST['plat_id']) ? $_POST['plat_id'] : null;
+
+                if(!$menu_id) {
+                    $erreur = "Erreur : Vous devez rattacher le plat à un menu.";
+                    break;
+                }
+
+                try {
+                    $pdo->beginTransaction();
+
+                    if($plat_id) {
+                        //Modification
+                        $sql = "UPDATE plat SET menu_id = ?, titre_plat = ?, description = ?, categorie = ?, actif = ? WHERE plat_id = ?";
+                        $stmt = $pdo->prepare($sql);
+                        $stmt->execute([$menu_id, $titre, $desc, $cat, $actif, $plat_id]);
+
+                        $pdo->prepare("DELETE FROM menu_plat WHERE plat_id = ?")->execute([$plat_id]);
+                        $pdo->prepare("INSERT INTO menu_plat (menu_id, plat_id) VALUES (?, ?)")->execute([$menu_id, $plat_id]);
+
+                        $succes = "Plat mis à jour !";
+                    } else {
+                        //création
+                        $sql = "INSERT INTO plat (menu_id, titre_plat, description, categorie, actif) VALUES (?, ?, ?, ?, ?)";
+                        $stmt = $pdo->prepare($sql);
+                        $stmt->execute([$menu_id, $titre, $desc, $cat, $actif]);
+
+                        $new_plat_id = $pdo->lastInsertId();
+
+                        $sqlLien = "INSERT INTO menu_plat (menu_id, plat_id) VALUES (?, ?)";
+                        $stmtLien = $pdo->prepare($sqlLien);
+                        $stmtLien->execute([$menu_id, $new_plat_id]);
+
+                        $succes = "Nouveau plat ajouté au menu !";
+                    }
+                    $pdo->commit();
+
+                    header("Location: espace-admin.php?success=1");
+                    exit;
+
+                    } catch (PDOException $e) {
+                        if ($pdo->inTransaction()) $pdo->rollBack();
+                        $erreur = "Erreur Plat : " . $e->getMessage();
+                    }
+                    break;
+                
+
+            case 'delete_plat':
+                $plat_id = $_POST['plat_id'];
+                $stmt = $pdo->prepare("DELETE FROM plat WHERE plat_id = ?");
+                $stmt->execute([$plat_id]);
+                $succes = "Plat supprimé.";
+                break;
+                
+
             case 'update_horaires':
                 try {
                     $pdo->beginTransaction();
+
                     foreach($_POST['debut'] as $jour => $heure_ouv) {
                         $heure_fer = $_POST['fin'][$jour];
                         $estOuvert = isset($_POST['ouvert'][$jour]);
@@ -100,9 +201,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             $final_fer = '00:00:00';
                         }
 
-                        $stmt = $pdo->prepare("UPDATE horaire SET heure_ouverture = ?, heure_fermeture = ? WHERE jour = ?");
-                        $stmt->execute([$final_ouv, $final_fer, $jour]);
+                    $stmt = $pdo->prepare("UPDATE horaire SET heure_ouverture = ?, heure_fermeture = ? WHERE jour = ?");
+                    $stmt->execute([$final_ouv, $final_fer, $jour]);
                     }
+                    
                     $pdo->commit();
                     $succes = "Les horaires du restaurant ont été mis à jour avec succès.";
                 } catch (Exception $e) {
@@ -112,191 +214,180 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 break;
     }
 }
+ 
+//Récupération menus BDD
+$stmtM = $pdo->query("SELECT * FROM menu ORDER BY titre ASC");
+$menusBDD = $stmtM->fetchAll(PDO::FETCH_ASSOC);
 
-//Récupération des vrais horaires depuis la BDD pour l'affichage
+//Récupération des horaires
 $stmtH = $pdo->query("SELECT * FROM horaire ORDER BY horaire_id ASC");
-$rows = $stmtH->fetchAll(PDO::FETCH_ASSOC);
+$horairesData = $stmtH->fetchAll(PDO::FETCH_ASSOC);
 $horaires = [];
-foreach($rows as $r){
-    $ouvert = ($r['heure_ouverture'] !== '00:00:00' && !empty($r['heure_ouverture']));
-
+foreach($horairesData as $r){
     $horaires[] = [
         'jour' => $r['jour'],
-        'ouvert' => $ouvert,
+        'ouvert' => ($r['heure_ouverture'] !== '00:00:00'),
         'debut' => $r['heure_ouverture'],
         'fin' => $r['heure_fermeture']
     ];
 }
 
-//Infos de l'admin connecté
-$stmt = $pdo->prepare("SELECT u.prenom, u.nom, u.email, r.libelle as role
-                    FROM utilisateur u
-                    JOIN role r ON u.role_id = r.role_id
-                    WHERE u.utilisateur_id = ?");
-$stmt->execute([$_SESSION['user_id']]);
-$admin = $stmt->fetch();
-
-//Liste des employés
-$stmt = $pdo->query("
+//Employés
+$stmtE = $pdo->query("
         SELECT u.utilisateur_id as employe_id, u.prenom, u.nom, u.email, u.telephone, e.poste as role, e.salaire_horaire, u.actif, u.created_at, u.updated_at
         FROM utilisateur u
         INNER JOIN employes e ON u.utilisateur_id = e.utilisateur_id
         WHERE u.role_id = 2
         ");
-$employes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$employes = $stmtE->fetchAll(PDO::FETCH_ASSOC);
 
-//Récupération des statuts
-$statutsQuery = $pdo->query("SELECT * FROM statut");
-$statutsData = $statutsQuery->fetchAll(PDO::FETCH_ASSOC);
+//Info admin connecté
+$stmtAdmin = $pdo->prepare("
+    SELECT u.prenom, u.nom, u.email, r.libelle as role
+    FROM utilisateur u
+    JOIN role r ON u.role_id = r.role_id
+    WHERE u.utilisateur_id = ? AND u.role_id = 3
+");
+$stmtAdmin->execute([$_SESSION['user_id'] ?? 0]);
+$admin = $stmtAdmin->fetch(PDO::FETCH_ASSOC);
 
-$statutLabels = [];
-foreach($statutsData as $st){
-    $statutLabels[$st['statut_id']] = $st['libelle'];
+if(!$admin) {
+    $admin = [
+        'prenom' => 'Admin',
+        'nom' => '',
+        'email' => '',
+        'role' => 'Administrateur'];
 }
-
+//Commandes
 try {
-    $sqlCommandes = "SELECT
-        c.commande_id,
-        c.date_commande,
-        c.date_prestation,
-        c.heure_livraison,
-        c.adresse_livraison,
-        c.ville_livraison,
-        c.nombre_personnes,
-        c.prix_total,
-        c.statut_id,
-        c.pret_materiel,
-        u.prenom AS client_prenom,
-        u.nom AS client_nom,
-        u.email AS client_email,
-        u.telephone AS client_telephone,
-        m.titre AS menu_titre
-    FROM commande c
-    INNER JOIN utilisateur u ON c.utilisateur_id = u.utilisateur_id
-    INNER JOIN commande_menu cm ON c.commande_id = cm.commande_id
-    INNER JOIN menu m ON cm.menu_id = m.menu_id
-    GROUP BY c.commande_id
-    ORDER BY c.date_commande DESC";
-
-    $stmt = $pdo->query($sqlCommandes);
-    $commandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
+    $sqlCommandes ="SELECT c.*, u.prenom AS client_prenom, u.nom AS client_nom, m.titre AS menu_titre
+                     FROM commande c
+                     INNER JOIN utilisateur u ON c.utilisateur_id = u.utilisateur_id
+                     INNER JOIN commande_menu cm ON c.commande_id = cm.commande_id
+                     INNER JOIN menu m ON cm.menu_id = m.menu_id
+                     GROUP BY c.commande_id
+                     ORDER BY c.date_commande DESC";
+    $commandes = $pdo->query($sqlCommandes)->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    // En production, on évite le die() sauvage, mais pour tes tests c'est parfait
-    echo "<div style='color:red; background:white; padding:10px; border:1px solid red;'>";
-    echo "<strong>Erreur SQL :</strong> " . $e->getMessage();
-    echo "</div>";
+    $commandes = [];
+    $erreur = "Erreur commandes : " . $e->getMessage();
 }
 
+//Calcul des stats
 
-
-
-
-//Avis (même que employé)
-$avis = [
-    [
-        'avis_id'     => 1,
-        'commande_id' => 1003,
-        'client'      => 'Sophie Bernard',
-        'menu_titre'  => 'Printemps & Pâques',
-        'note'        => 5,
-        'commentaire' => 'Excellent service, tout était parfait !',
-        'date'        => '2026-04-21 10:30:00',
-        'statut'      => 'en_attente',
-    ],
-    [
-        'avis_id'     => 2,
-        'commande_id' => 1004,
-        'client'      => 'Pierre Moreau',
-        'menu_titre'  => 'Le Grand Festin de Noël',
-        'note'        => 4,
-        'commentaire' => 'Très bonne prestation, équipe professionnelle.',
-        'date'        => '2026-05-11 09:00:00',
-        'statut'      => 'en_attente',
-    ],
-];
-
-//Menus et plats
-$menus = [
-    ['menu_id' => 1, 'titre' => 'Le Grand Festin de Noël',   'prix_par_personne' => 32.00, 'nb_plats' => 6, 'actif' => true],
-    ['menu_id' => 2, 'titre' => 'Menu Prestige Classique',   'prix_par_personne' => 22.50, 'nb_plats' => 4, 'actif' => true],
-    ['menu_id' => 3, 'titre' => 'Printemps & Pâques',        'prix_par_personne' => 22.50, 'nb_plats' => 5, 'actif' => true],
-    ['menu_id' => 4, 'titre' => 'Soirée Entreprise Premium', 'prix_par_personne' => 25.00, 'nb_plats' => 5, 'actif' => false],
-];
- 
-$plats = [
-    ['plat_id' => 1, 'nom' => 'Foie gras maison',        'categorie' => 'Entrée',  'allergenes' => 'Gluten',              'actif' => true],
-    ['plat_id' => 2, 'nom' => 'Velouté de champignons',  'categorie' => 'Entrée',  'allergenes' => 'Lait',                'actif' => true],
-    ['plat_id' => 3, 'nom' => 'Magret de canard',        'categorie' => 'Plat',    'allergenes' => '—',                   'actif' => true],
-    ['plat_id' => 4, 'nom' => 'Risotto aux truffes',     'categorie' => 'Plat',    'allergenes' => 'Lait',                'actif' => true],
-    ['plat_id' => 5, 'nom' => 'Bûche de Noël chocolat',  'categorie' => 'Dessert', 'allergenes' => 'Gluten, Lait, Œufs',  'actif' => true],
-    ['plat_id' => 6, 'nom' => 'Sorbet fruits de saison', 'categorie' => 'Dessert', 'allergenes' => '—',                   'actif' => false],
-];
-
-//Récupération des vrais horaires depuis la BDD
-$stmtH = $pdo->query("SELECT * FROM horaire ORDER BY horaire_id ASC");
-$rows = $stmtH->fetchAll(PDO::FETCH_ASSOC);
-$horaires = [];
-foreach($rows as $r){
-    $horaires[] = [
-        'jour' => $r['jour'],
-        'ouvert' => ($r['heure_ouverture'] !== '00:00:00' && !empty($r['heure_ouverture'])),
-        'debut' => $r['heure_ouverture'],
-        'fin' => $r['heure_fermeture']
-    ];
-}
-
-//Labels et couleurs statuts
-$statutLabels = [
-    'en_attente'            => 'En attente',
-    'accepte'               => 'Acceptée',
-    'en_preparation'        => 'En préparation',
-    'en_cours_de_livraison' => 'En cours de livraison',
-    'livre'                 => 'Livrée',
-    'en_attente_materiel'   => 'Retour matériel',
-    'terminee'              => 'Terminée',
-    'annulee'               => 'Annulée',
-];
- 
-$statutColors = [
-    'en_attente'            => 'statut--attente',
-    'accepte'               => 'statut--accepte',
-    'en_preparation'        => 'statut--prep',
-    'en_cours_de_livraison' => 'statut--livraison',
-    'livre'                 => 'statut--livre',
-    'en_attente_materiel'   => 'statut--materiel',
-    'terminee'              => 'statut--termine',
-    'annulee'               => 'statut--annule',
-];
- 
-$statutTransitions = [
-    'en_attente'            => ['accepte', 'annulee'],
-    'accepte'               => ['en_preparation'],
-    'en_preparation'        => ['en_cours_de_livraison'],
-    'en_cours_de_livraison' => ['livre'],
-    'livre'                 => ['en_attente_materiel', 'terminee'],
-    'en_attente_materiel'   => ['terminee'],
-];
-
-
-//Stats
-$nbEnAttente = count(array_filter($commandes, fn($c) => $c['statut'] === 'en_attente'));
-$nbEnCours = count(array_filter($commandes, fn($c) => in_array($c['statut'], ['accepte', 'en_preparation', 'en_cours_de_livraison', 'livre', 'en_attente_materiel'])));
-$nbAvisAttente = count(array_filter($avis, fn($a) => $a['statut'] === 'en_attente'));
-$nbEmployes = count(array_filter($employes, fn($e) => $e['actif']));
-$caTotal = array_sum(array_column(array_filter($commandes, fn($c) => $c['statut'] === 'terminee'), 'prix_total'));
-
-//Stats par menu (pour graphique)
+$caTotal = 0;
 $statsParMenu = [];
-foreach($commandes as $cmd) {
-    $titre = $cmd['menu_titre'];
-    if(!isset($statsParMenu[$titre])) {
+$ID_STATUT_TERMINE = 7;
+
+foreach($commandes as $cmd){
+    $titre = $cmd['menu_titre'] ?? 'Menu inconnu';
+
+    if(!isset($statsParMenu[$titre])){
         $statsParMenu[$titre] = ['nb_commandes' => 0, 'ca' => 0.0];
     }
+
     $statsParMenu[$titre]['nb_commandes']++;
-    if($cmd['statut'] === 'terminee') {
-    $statsParMenu[$titre]['ca'] += $cmd['prix_total'];
+
+    if($cmd['statut_id'] == $ID_STATUT_TERMINE){
+            $caTotal += $cmd['prix_total'];
+            $statsParMenu[$titre]['ca'] += $cmd['prix_total'];
     }
+}
+
+
+//Compteurs pour les widgets
+$nbEnAttente = count(array_filter($commandes, fn($c) => $c['statut_id'] == 1));
+$nbEnCours = count(array_filter($commandes, fn($c) => in_array($c['statut_id'], [2, 3, 4, 5, 6])));
+$nbEmployes = count(array_filter($employes, fn($e) => $e['actif']));
+$nbAvisAttente = 0;
+
+//Labels statuts pour l'affichage
+$statutLabels = [
+    1 => 'En attente',
+    2 => 'Acceptée',
+    3 => 'En préparation',
+    4 => 'En cours de livraison',
+    5 => 'Livrée',
+    6 => 'Retour matériel',
+    7 => 'Terminée',
+    8 => 'Annulée',
+];
+
+$statutColors = [
+    1 => 'statut--attente',
+    2 => 'statut--accepte',
+    3 => 'statut--prep',
+    4 => 'statut--livraison',
+    5 => 'statut--livre',
+    6 => 'statut--retour',
+    7 => 'statut--termine',
+    8 => 'statut--annule',
+];
+
+$statutTransitions = [
+    1 => [2, 8],
+    2 => [3, 8],
+    3 => [4, 8],
+    4 => [5],
+    5 => [6],
+    6 => [7],
+];
+
+// Avis
+try {
+    $stmtAvis = $pdo->query("
+        SELECT a.avis_id, a.note, a.description as commentaire, a.created_at as date,
+               sa.libelle as statut,
+               u.prenom AS client,
+               m.titre AS menu_titre
+        FROM avis a
+        JOIN utilisateur u ON a.utilisateur_id = u.utilisateur_id
+        JOIN commande c ON a.commande_id = c.commande_id
+        JOIN commande_menu cm ON c.commande_id = cm.commande_id
+        JOIN menu m ON cm.menu_id = m.menu_id
+        JOIN statut_avis sa ON a.statut_avis_id = sa.statut_avis_id
+        GROUP BY a.avis_id
+        ORDER BY a.created_at DESC
+    ");
+    $avis = $stmtAvis->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $avis = [];
+}
+
+// Menus complets
+try {
+    $stmtMenus = $pdo->query("
+        SELECT m.*, COUNT(mp.plat_id) as nb_plats,
+               mi.url as image_url
+        FROM menu m
+        LEFT JOIN menu_plat mp ON m.menu_id = mp.menu_id
+        LEFT JOIN menu_image mi ON m.menu_id = mi.menu_id AND mi.ordre = 1
+        GROUP BY m.menu_id
+        ORDER BY m.titre ASC
+    ");
+    $menus = $stmtMenus->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $menus = [];
+}
+
+// Plats
+try {
+    $stmtPlats = $pdo->query("
+        SELECT p.plat_id, p.titre_plat, p.description, p.categorie, p.actif,
+                mp.menu_id,
+                m.titre AS menu_titre,
+               GROUP_CONCAT(a.libelle SEPARATOR ', ') as allergenes
+        FROM plat p
+        LEFT JOIN menu_plat mp ON p.plat_id = mp.plat_id
+        LEFT JOIN menu m ON mp.menu_id = m.menu_id
+        LEFT JOIN plat_allergene pa ON p.plat_id = pa.plat_id
+        LEFT JOIN allergene a ON pa.allergene_id = a.allergene_id
+        GROUP BY p.plat_id
+        ORDER BY p.titre_plat ASC
+    ");
+    $plats = $stmtPlats->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $plats = [];
 }
 
 ?>
@@ -477,7 +568,7 @@ foreach($commandes as $cmd) {
                     <div class="employe-client-avatar <?= !$emp['actif'] ? 'avatar--inactif' : '' ?>">
                         <?= strtoupper(substr($emp['prenom'], 0, 1) . substr($emp['nom'], 0, 1)) ?>
                     </div>
-                <div>
+                <div class="admin-employe-info-wrap">
                     <div class="admin-employe-nom">
                         <?= htmlspecialchars($emp['prenom'] . ' ' . $emp['nom']) ?>
                         <span class="commande-statut <?= $emp['actif'] ? 'statut--accepte' : 'statut--annule' ?>">
@@ -549,7 +640,7 @@ foreach($commandes as $cmd) {
                         <label class="employe-filtre-label">Filtrer par menu</label>
                         <select class="commande-input" id="filtre-menu-ca" onchange="mettreAJourCA()">
                             <option value="">Tous les menus</option>
-                            <?php foreach ($menus as $m): ?>
+                            <?php foreach ($menusBDD as $m): ?>
                                 <option value="<?= htmlspecialchars($m['titre']) ?>">
                                     <?= htmlspecialchars($m['titre']) ?>
                                 </option>
@@ -654,17 +745,17 @@ foreach($commandes as $cmd) {
                 <div class="commandes-liste" id="liste-commandes">
                     <?php foreach ($commandes as $cmd): ?>
                         <div class="commande-item employe-commande-item"
-                             data-statut="<?= $cmd['statut'] ?>"
-                             data-client="<?= strtolower($cmd['client_prenom'] . ' ' . $cmd['client_nom'] . ' ' . $cmd['client_email']) ?>"
+                             data-statut="<?= $cmd['statut_id'] ?>"
+                             data-client="<?= strtolower($cmd['client_prenom'] . ' ' . $cmd['client_nom']) ?>"
                              id="admin-cmd-<?= $cmd['commande_id'] ?>">
  
                             <div class="commande-item__header">
                                 <div class="commande-item__id">
                                     <span class="commande-item__num">Commande #<?= $cmd['commande_id'] ?></span>
-                                    <span class="commande-statut <?= $statutColors[$cmd['statut']] ?? '' ?>">
-                                        <?= $statutLabels[$cmd['statut']] ?? $cmd['statut'] ?>
+                                    <span class="commande-statut <?= $statutColors[$cmd['statut_id']] ?? '' ?>">
+                                        <?= $statutLabels[$cmd['statut_id']] ?? $cmd['statut_id'] ?>
                                     </span>
-                                    <?php if ($cmd['materiel_prete']): ?>
+                                    <?php if (!empty($cmd['materiel_prete'])): ?>
                                         <span class="commande-statut statut--materiel">Matériel prêté</span>
                                     <?php endif; ?>
                                 </div>
@@ -703,7 +794,7 @@ foreach($commandes as $cmd) {
                                 <div class="commande-suivi">
                                     <h4 class="commande-suivi__titre">Historique</h4>
                                     <ul class="suivi-timeline">
-                                        <?php foreach ($cmd['historique'] as $etape): ?>
+                                        <?php foreach (($cmd['historique'] ?? []) as $etape): ?>
                                             <li class="suivi-etape suivi-etape--done">
                                                 <div class="suivi-etape__dot"></div>
                                                 <div class="suivi-etape__content">
@@ -717,12 +808,12 @@ foreach($commandes as $cmd) {
                             </div>
  
                             <div class="commande-item__actions employe-commande-actions">
-                                <?php if (isset($statutTransitions[$cmd['statut']])): ?>
+                                <?php if (isset($statutTransitions[$cmd['statut_id']])): ?>
                                     <form method="POST" action="" style="display:inline-flex; gap:8px; align-items:center;">
                                         <input type="hidden" name="action" value="update_statut">
                                         <input type="hidden" name="commande_id" value="<?= $cmd['commande_id'] ?>">
                                         <select name="nouveau_statut" class="commande-input employe-statut-select">
-                                            <?php foreach ($statutTransitions[$cmd['statut']] as $s): ?>
+                                            <?php foreach ($statutTransitions[$cmd['statut_id']] as $s): ?>
                                                 <option value="<?= $s ?>"><?= $statutLabels[$s] ?></option>
                                             <?php endforeach; ?>
                                         </select>
@@ -732,7 +823,7 @@ foreach($commandes as $cmd) {
                                     </form>
                                 <?php endif; ?>
  
-                                <?php if (!in_array($cmd['statut'], ['terminee', 'annulee'])): ?>
+                                <?php if (!in_array($cmd['statut_id'], [7, 8])): ?>
                                     <button type="button"
                                             class="btn-compte-action btn-compte-action--annuler"
                                             onclick="ouvrirAnnulationAdmin(<?= $cmd['commande_id'] ?>)">
@@ -865,6 +956,10 @@ foreach($commandes as $cmd) {
                                     <label class="commande-label">Prix / pers. (€)</label>
                                     <input type="number" name="prix" class="commande-input" step="0.50" min="0" required>
                                 </div>
+                                <div class="commande-field">
+                                    <label class="commande-label">Nombre de personnes minimum</label>
+                                    <input type="number" name="nb_personnes_min" class="commande-input" min="1" value="1" required>
+                                </div>
                             </div>
                             <div class="modif-form__actions">
                                 <button type="submit" class="btn btn-vg-primary">Créer</button>
@@ -875,7 +970,7 @@ foreach($commandes as $cmd) {
                     </div>
                     <div class="employe-catalogue">
                         <?php foreach ($menus as $menu): ?>
-                            <div class="employe-catalogue-item">
+                            <div class="employe-catalogue-item <?= !$menu['actif'] ? 'item--inactif' : '' ?>">
                                 <div class="employe-catalogue-item__header">
                                     <div>
                                         <span class="commande-item__num"><?= htmlspecialchars($menu['titre']) ?></span>
@@ -937,57 +1032,135 @@ foreach($commandes as $cmd) {
                         <button class="btn-compte-action btn-compte-action--modifier"
                                 onclick="toggleForm('form-admin-nouveau-plat')">+ Nouveau plat</button>
                     </div>
+                    <div class="admin-search-bar" style="margin:15px 0; display:flex; gap:10px;">
+                        <input type="text" id="filterPlatName" class="commande-input" placeholder="Rechercher un plat..." onkeyup="filterPlats()">
+
+                        <select id="filterPlatMenu" class="commande-input" onchange="filterPlats()">
+                            <option value="">Tous les menus</option>
+                            <?php foreach($menusBDD as $m): ?>
+                                <option value="<?= htmlspecialchars($m['titre']) ?>"><?= htmlspecialchars($m['titre']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                     <div class="compte-empty" id="no-results-plats" style="display:none;">
+                        <h3>Aucun plat trouvé</h3>
+                        <p>Modifiez vos filtres pour voir d'autres plats.</p>
+                    </div>
+
                     <div class="commande-modif-form" id="form-admin-nouveau-plat" style="display:none;">
                         <form method="POST" action="" class="modif-form">
                             <input type="hidden" name="action" value="update_plat">
-                            <h4 class="modif-form__titre">Nouveau plat</h4>
+
+                            <div class="commande-field">
+                                <label class="commande-label">Rattacher à quel Menu</label>
+                                <select name="menu_id" class="commande-input" required>
+                                    <?php foreach($menusBDD as $m): ?>
+                                        <option value="<?= $m['menu_id'] ?>"><?= htmlspecialchars($m['titre']) ?></option>
+                                        <?php endforeach; ?>
+                                </select>
+                            </div>
+
                             <div class="commande-field-row">
                                 <div class="commande-field">
-                                    <label class="commande-label">Nom</label>
-                                    <input type="text" name="nom" class="commande-input" required>
+                                    <label class="commande-label">Nom du plat</label>
+                                    <input type="text" name="titre_plat" class="commande-input" required>
                                 </div>
                                 <div class="commande-field">
                                     <label class="commande-label">Catégorie</label>
                                     <select name="categorie" class="commande-input">
-                                        <option>Entrée</option><option>Plat</option>
-                                        <option>Dessert</option><option>Boisson</option>
+                                        <option value="Entrée">Entrée</option>
+                                        <option value="Plat">Plat principal</option>
+                                        <option value="Dessert">Dessert</option>
                                     </select>
                                 </div>
                             </div>
+
                             <div class="commande-field">
-                                <label class="commande-label">Allergènes</label>
-                                <input type="text" name="allergenes" class="commande-input" placeholder="Ex : Gluten, Lait">
+                                <label class="commande-label">Description / Allergènes</label>
+                                <textarea name="description" class="commande-input"></textarea>
                             </div>
+
                             <div class="modif-form__actions">
-                                <button type="submit" class="btn btn-vg-primary">Créer</button>
+                                <button type="submit" class="btn btn-vg-primary">Ajouter le plat</button>
                                 <button type="button" class="btn btn-vg-secondary"
                                         onclick="toggleForm('form-admin-nouveau-plat')">Annuler</button>
                             </div>
                         </form>
                     </div>
+
                     <div class="employe-catalogue">
                         <?php foreach ($plats as $plat): ?>
                             <div class="employe-catalogue-item">
                                 <div class="employe-catalogue-item__header">
                                     <div>
-                                        <span class="commande-item__num"><?= htmlspecialchars($plat['nom']) ?></span>
+                                        <span class="commande-item__num"><?= htmlspecialchars($plat['titre_plat']) ?></span>
                                         <span class="commande-statut statut--prep"><?= $plat['categorie'] ?></span>
-                                        <span class="commande-statut <?= $plat['actif'] ? 'statut--accepte' : 'statut--annule' ?>">
-                                            <?= $plat['actif'] ? 'Actif' : 'Inactif' ?>
-                                        </span>
+                                        <small>Menu rattaché : <strong><?= htmlspecialchars($plat['menu_titre'] ?? 'Aucun') ?></strong></small>
                                     </div>
-                                    <?php if ($plat['allergenes'] !== '—'): ?>
-                                        <span class="employe-allergene">⚠ <?= $plat['allergenes'] ?></span>
-                                    <?php endif; ?>
                                 </div>
+
                                 <div class="commande-item__actions">
                                     <button class="btn-compte-action btn-compte-action--modifier"
                                             onclick="toggleForm('form-admin-plat-<?= $plat['plat_id'] ?>')">Modifier</button>
+
                                     <form method="POST" action="" style="display:inline;"
                                           onsubmit="return confirm('Supprimer ce plat ?')">
                                         <input type="hidden" name="action" value="delete_plat">
                                         <input type="hidden" name="plat_id" value="<?= $plat['plat_id'] ?>">
                                         <button type="submit" class="btn-compte-action btn-compte-action--annuler">Supprimer</button>
+                                    </form>
+                                </div>
+
+                                <div class="commande-modif-form" id="form-admin-plat-<?= $plat['plat_id'] ?>" style="display:none;">
+                                    <form method="POST" action="" class="modif-form">
+                                        <input type="hidden" name="action" value="update_plat">
+                                        <input type="hidden" name="plat_id" value="<?= $plat['plat_id'] ?>">
+
+                                        <div class="commande-field">
+                                            <label class="commande-label">Changer de Menu</label>
+                                            <select name="menu_id" class="commande_input">
+                                                <?php foreach ($menusBDD as $m): ?>
+                                                    <option value="<?= $m['menu_id'] ?>" <?= $m['menu_id'] == $plat['menu_id'] ? 'selected' : '' ?>>
+                                                        <?= htmlspecialchars($m['titre']) ?>
+                                                    </option>
+                                                    <?php endforeach; ?>
+                                            </select>
+                                        </div>
+
+                                        <div class="commande-field-row">
+                                            <div class="commande-field">
+                                                <label class="commande-label">Nom du plat</label>
+                                                <input type="text" name="titre_plat" class="commande-input" value="<?= htmlspecialchars($plat['titre_plat']) ?>">
+                                            </div>
+                                            <div class="commande-field">
+                                                <label class="commande-label">Catégorie</label>
+                                                <select name="categorie" class="commande-input">
+                                                    <option value="Entrée" <?= $plat['categorie'] == 'Entrée' ? 'selected' : '' ?>>Entrée</option>
+                                                    <option value="Plat" <?= $plat['categorie'] == 'Plat' ? 'selected' : '' ?>>Plat</option>
+                                                    <option value="Dessert" <?= $plat['categorie'] == 'Dessert' ? 'selected' : '' ?>>Dessert</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="commande-field">
+                                            <label class="commande-label">Description</label>
+                                            <textarea name="description" class="commande-input"><?= htmlspecialchars($plat['description']) ?></textarea>
+                                        </div>
+
+                                        <div class="commande-field">
+                                            <label class="commande-label">Statut</label>
+                                            <select name="actif" class="commande-input">
+                                                <option value="1" <?= $plat['actif'] ? 'selected' : '' ?>>Actif</option>
+                                                <option value="0" <?= !$plat['actif'] ? 'selected' : '' ?>>Inactif</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="modif-form__actions">
+                                            <button type="submit" class="btn btn-vg-primary">Enregistrer</button>
+                                            <button type="button" class="btn btn-vg-secondary" onclick="toggleForm('form-admin-plat-<?= $plat['plat_id'] ?>')">Annuler</button>
+                                        </div>
+
                                     </form>
                                 </div>
                             </div>
@@ -1043,7 +1216,7 @@ foreach($commandes as $cmd) {
  
 <script>
 
-//Disparition automatique des alertes après 5 secondes
+ //Disparition automatique des alertes après 5 secondes
 const alerts = document.querySelectorAll('.auth-alert');
 alerts.forEach(alert => {
     setTimeout(() => {
@@ -1053,27 +1226,44 @@ alerts.forEach(alert => {
     }, 5000);
 });
 
-const tabs = document.querySelectorAll('.compte-tab');
-tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        alerts.forEach(alert => alert.remove());
-    });
-});
 
 // Données pour le graphique (injectées depuis PHP)
-const donneesMenus = <?= json_encode(array_map(fn($titre, $stats) => [
-    'titre'        => $titre,
-    'nb_commandes' => $stats['nb_commandes'],
-    'ca'           => $stats['ca'],
-], array_keys($statsParMenu), array_values($statsParMenu))) ?>;
- 
-const toutesCommandes = <?= json_encode(array_map(fn($c) => [
-    'menu_titre'  => $c['menu_titre'],
-    'prix_total'  => $c['prix_total'],
-    'statut'      => $c['statut'],
-    'created_at'  => $c['created_at'],
-], $commandes)) ?>;
- 
+// --- DEBUT DU BLOC SECURISE ---
+const donneesMenus = <?php
+    if (!empty($statsParMenu)) {
+        $cleanStats = [];
+        foreach ($statsParMenu as $titre => $stats) {
+            $cleanStats[] = [
+                'titre'        => $titre,
+                'nb_commandes' => $stats['nb_commandes'],
+                'ca'           => $stats['ca']
+            ];
+        }
+        echo json_encode($cleanStats);
+    } else {
+        echo "[]";
+    }
+?>;
+
+const toutesCommandes = <?php
+    if (!empty($commandes)) {
+        $cleanCmd = [];
+        foreach ($commandes as $c) {
+            $cleanCmd[] = [
+                'menu_titre' => $c['menu_titre'] ?? 'Inconnu',
+                'prix_total' => $c['prix_total'] ?? 0,
+                'statut'     => $c['statut_id'] ?? 0,
+                'created_at' => $c['created_at'] ?? ''
+            ];
+        }
+        echo json_encode($cleanCmd);
+    } else {
+        echo "[]";
+    }
+?>;
+// --- FIN DU BLOC SECURISE ---
+
+
 // Couleurs
 const couleurs = [
     'rgba(196,151,58,0.85)',
@@ -1135,7 +1325,7 @@ function mettreAJourCA() {
     const dateDebut   = document.getElementById('filtre-date-debut').value;
     const dateFin     = document.getElementById('filtre-date-fin').value;
  
-    let cmdFiltrees = toutesCommandes.filter(c => c.statut === 'terminee');
+    let cmdFiltrees = toutesCommandes.filter(c => c.statut == 7);
  
     if (menuFiltre) {
         cmdFiltrees = cmdFiltrees.filter(c => c.menu_titre === menuFiltre);
@@ -1161,15 +1351,20 @@ function reinitialiserFiltres() {
 }
  
 // Onglets principaux
-document.querySelectorAll('.compte-tab').forEach(tab => {
-    tab.addEventListener('click', function () {
-        document.querySelectorAll('.compte-tab').forEach(t => t.classList.remove('active'));
+document.querySelectorAll('.compte-tab').forEach(button => {
+    button.onclick = function() {
+        const targetName = this.getAttribute('data-tab');
+        const targetPanel = document.getElementById('tab-' + targetName);
+
+        //Si on arrive ici, on change l'affichage
+        document.querySelectorAll('.compte-tab').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.compte-panel').forEach(p => p.classList.remove('active'));
+
         this.classList.add('active');
-        const panel = document.getElementById('tab-' + this.dataset.tab);
-        if (panel) panel.classList.add('active');
-        if (this.dataset.tab === 'statistiques') creerGraphique(typeGraphique);
-    });
+        targetPanel.classList.add('active');
+
+        console.log("Section " + targetName + "affichée avec succès !");
+    };
 });
  
 // Sous-onglets
@@ -1196,13 +1391,46 @@ function filtrerCommandes() {
     const client = document.getElementById('filtre-client').value.toLowerCase();
     const items  = document.querySelectorAll('.employe-commande-item');
     let visible  = 0;
+
     items.forEach(item => {
-        const ok = (!statut || item.dataset.statut === statut) &&
-                   (!client || item.dataset.client.includes(client));
+        const matchStatut = !statut || item.dataset.statut == statut;
+        const matchClient = !client || item.dataset.client.includes(client);
+
+        const ok = matchStatut && matchClient;
         item.style.display = ok ? '' : 'none';
         if (ok) visible++;
     });
     document.getElementById('no-results').style.display = visible === 0 ? 'block' : 'none';
+}
+
+function filterPlats() {
+    let nameSearch = document.getElementById('filterPlatName').value.toLowerCase();
+    let menuSearch = document.getElementById('filterPlatMenu').value;
+
+    let cards = document.querySelectorAll('#admin-sous-plats .employe-catalogue-item');
+
+    let emptyMessage = document.getElementById('no-results-plats');
+
+    let visibleCount = 0;
+
+    cards.forEach(card => {
+        let title = card.querySelector('.commande-item__num').innerText.toLowerCase();
+        let menuName = card.querySelector('small strong').innerText;
+
+        let nameMatch = title.includes(nameSearch);
+        let menuMatch = (menuSearch === "" || menuName === menuSearch);
+
+        if(nameMatch && menuMatch) {
+            card.style.display = "block";
+            visibleCount++;
+        } else {
+            card.style.display = "none";
+        }
+    });
+
+    if(emptyMessage) {
+        emptyMessage.style.display = (visibleCount === 0) ? "block" : "none";
+    }
 }
  
 function toggleHoraire(checkbox, jour) {
