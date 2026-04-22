@@ -285,5 +285,90 @@ $regimePillClass = [
     </div>
  </section>
 
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fPriceMaxRange = document.getElementById('f-price-max');
+        const fPriceMaxVal = document.querySelector('.f-price-max-val');
+        const fPriceMinInput = document.getElementById('f-pmin');
+        const fPriceMaxInput = document.getElementById('f-pmax');
+        const fTheme = document.getElementById('f-theme');
+        const fRegime = document.getElementById('f-regime');
+        const fPersons = document.getElementById('f-persons');
+
+        const btnReset = document.getElementById('btn-reset');
+        const btnResetEmpty = document.getElementById('btn-reset-empty');
+
+        const menuGrid = document.getElementById('menus-grid');
+        const menuCards = document.querySelectorAll('.menu-card');
+        const menuEmpty = document.getElementById('menus-empty');
+        const resultsNum = document.querySelector('.results-num');
+
+        function filterMenus() {
+            let visibleCount = 0;
+
+            //Valeurs dans les filtres
+            const priceMaxRange = parseFloat(fPriceMaxRange.value);
+            const priceMin = parseFloat(fPriceMinInput.value) || 0;
+            const priceMax = parseFloat(fPriceMaxInput.value) || Infinity;
+            const theme = fTheme.value;
+            const regime = fRegime.value;
+            const personsMinNeeded = parseInt(fPersons.value) || 0;
+
+            //Mise à jour de l'affichage du prix au-dessus du range
+            if (fPriceMaxVal) fPriceMaxVal.textContent = priceMaxRange + ' €';
+
+            menuCards.forEach(card => {
+                const cardPrice = parseFloat(card.dataset.prix);
+                const cardTheme = card.dataset.theme;
+                const cardRegime = card.dataset.regime;
+                //On récupère le nombre de personnes min via le texte
+                const cardPersons = parseInt(card.querySelector('.menu-card__personnes strong').textContent);
+
+                const matchPriceRange = cardPrice <= priceMaxRange;
+                const matchPriceManual = cardPrice >= priceMin && cardPrice <= priceMax;
+                const matchTheme = theme === "" || cardTheme === theme;
+                const matchRegime = regime === "" || cardRegime === regime;
+                const matchPersons = cardPersons >= personsMinNeeded;
+
+                if(matchPriceRange && matchPriceManual && matchTheme && matchRegime && matchPersons) {
+                    card.style.display = 'flex';
+                    visibleCount ++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            //Gestion de l'état vide
+            resultsNum.textContent = visibleCount;
+            if(visibleCount === 0) {
+                menuGrid.style.display = 'none';
+                menuEmpty.style.display = 'block';
+            } else {
+                menuGrid.style.display = 'grid';
+                menuEmpty.style.display = 'none';
+            }
+        }
+
+        function resetFilters() {
+            fPriceMaxRange.value = 1000;
+            fPriceMinInput.value = '';
+            fPriceMaxInput.value = '';
+            fTheme.value = '';
+            fRegime.value = '';
+            fPersons.value = '';
+            filterMenus();
+        }
+        
+        //Écouteurs d'évènements
+        [fPriceMaxRange, fPriceMinInput, fPriceMaxInput, fTheme, fRegime, fPersons].forEach(el => {
+            el.addEventListener('input', filterMenus);
+        });
+
+        btnReset.addEventListener('click', resetFilters);
+        btnResetEmpty.addEventListener('click', resetFilters);
+    });
+
+</script>
+
 
 <?php require_once '../includes/footer.php'; ?>
