@@ -1,5 +1,11 @@
 <?php
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
 session_start();
+
+require_once __DIR__ . '/../vendor/autoload.php';
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
 
@@ -24,23 +30,40 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $erreur = 'Adresse e-mail invalide.';
     } else {
-        //Envoi du mail à l'entreprise
-        $destinataire = 'contact@viteetgourmand.fr'; //a adapter
-        $sujet = '[Contact]' . htmlspecialchars($titre);
-        $corps = "Nouveau message depuis le formulaire de contact.\n\n";
-        $corps .= "De: " . $email . "\n";
-        $corps .= "Titre : " . $titre . "\n\n";
-        $corps .= "Message :\n" . $description;
-        $headers = "From: noreply@viteetgourmand.fr\r\n";
-        $headers .= "Reply to: " . $email . "\r\n";
-        $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
-        $envoye = mail($destinataire, $sujet, $corps, $headers);
+        $mail = new PHPMailer(true);
 
-        if($envoye) {
-            $succes = 'Votre message a bien été envoyé ! Nous vous répondrons dans les plus brefs délais.';
-        } else {
-            //En local (XAMPP) mail() ne fonctionne pas on simule le succès
-            $succes = 'Message reçu ! Nous vous répondrons à l\'adresse ' . htmlspecialchars($email) . '.';
+        try {
+            //Paramêtre du serveur Mailtrap
+            $mail->isSMTP();
+
+            $mail->Host = 'sandbox.smtp.mailtrap.io';
+            $mail->SMTPAuth = true;
+            $mail->Username = 'a42fbdd3effc59';
+            $mail->Password = '6bbe288f32e485';
+            $mail->Port = 2525;
+
+            //Destinataires
+            $mail->setFrom('noreply@viteetgourmand.fr', 'Vite & Gourmand');
+            $mail->addAddress('contact@viteetgourmand.fr');
+            $mail->addReplyTo($email);
+
+            //Contenu
+            $mail->isHtml(false);
+            $mail->CharSet = 'UTF-8';
+            $mail->Subject = '[Contact] ' . $titre;
+
+            //Construction du texte du mail
+            $contenuMail = "Nouveau message de : " . $email . "\n";
+            $contenuMail .= "Sujet : " . $titre . "\n";
+            $contenuMail .= "-------------------------------------------\n\n";
+            $contenuMail .= $description;
+
+            $mail->Body = $contenuMail;
+
+            $mail->send();
+            $succes = 'Votre message a bien été envoyé ! (Via Mailtrap)';
+        } catch (Exception $e) {
+            $erreur = "Le message n'a pas pu être envoyé. Erreur: {$mail->ErrorInfo}";
         }
     }
 }
@@ -128,7 +151,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     <div class="contact-info-item">
                         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                        <span>contact@viteetgourmand</span>
+                        <span>contact@viteetgourmand.fr</span>
                     </div>
                  </div>
 

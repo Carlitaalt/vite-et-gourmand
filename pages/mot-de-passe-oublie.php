@@ -3,6 +3,7 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 session_start();
+
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
