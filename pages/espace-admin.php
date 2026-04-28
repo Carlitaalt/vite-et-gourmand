@@ -88,23 +88,50 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             case 'update_menu':
                 $titre = trim($_POST['titre']);
                 $prix = $_POST['prix'];
-                $nb_pers_min = $_POST['nb_personnes_min'] ?? 1;
+                $nb_pers_min = (int)($_POST['nb_personnes_min'] ?? 1);
+                $description = trim($_POST['description'] ?? '');
                 $actif = isset($_POST['actif']) ? $_POST['actif'] : 1;
+                $theme_id = $_POST['theme_id'] ?? 1;
+                $regime_id = $_POST['regime_id'] ?? 1;
                 $menu_id = (!empty($_POST['menu_id'])) ? (int)$_POST['menu_id'] : null;
                 
                 try {
                     if($menu_id) {
-                        $sql = "UPDATE menu SET titre = ?, prix_par_personne = ?, nombre_personne_minimum = ?,  actif = ?, updated_at = NOW() WHERE menu_id = ?";
+                        $sql = "UPDATE menu SET titre = ?, prix_par_personne = ?, nombre_personne_minimum = ?, description = ?,  actif = ?, theme_id = ?, regime_id = ?, updated_at = NOW() WHERE menu_id = ?";
                         $stmt = $pdo->prepare($sql);
-                        $stmt->execute([$titre, $prix, $nb_pers_min, $actif, $menu_id]);
+                        $stmt->execute([$titre, $prix, $nb_pers_min, $description, $actif, $theme_id, $regime_id, $menu_id]);
                         $succes = "Le menu '" . htmlspecialchars($titre) . "' a été mis à jour.";
                     } else {
                     //Création d'un nouveau menu
-                        $sql = "INSERT INTO menu (titre, prix_par_personne, nombre_personne_minimum, actif, theme_id, description, conditions, regime_id, created_at, updated_at) VALUES (?, ?, 1, NULL, NULL, '', '', 1, NOW(), NOW())";
+                        $sql = "INSERT INTO menu (titre, prix_par_personne, nombre_personne_minimum, description, actif, theme_id, regime_id, created_at, updated_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
                         $stmt = $pdo->prepare($sql);
-                        $stmt->execute([$titre, $prix, $nb_pers_min, $actif]);
+                        $stmt->execute([$titre, $prix, $nb_pers_min, $description, $actif, $theme_id, $regime_id]);
+                        $menu_id = $pdo->lastInsertId();
+                        $succes = "Le nouveau menu a été crée.";
+
                     }
-                    $succes = "Le nouveau menu a été crée.";
+                
+                if (isset($_FILES['menu_photo']) && $_FILES['menu_photo']['error'] === 0) {
+                    $uploadDir = '../assets/images/menus/';
+
+                    $extension = pathinfo($_FILES['menu_photo']['name'], PATHINFO_EXTENSION);
+                    $nomFichier = "menu_" . $menu_id . "_" . time() . "." . $extension;
+                    $destination = $uploadDir . $nomFichier;
+
+                    if(move_uploaded_file($_FILES['menu_photo']['tmp_name'], $destination)) {
+                        //Enregistrer le chemin de l'image en BDD
+                        $urlBDD = "assets/images/menus/" . $nomFichier;
+
+                        $stmtDel = $pdo->prepare("DELETE FROM menu_image WHERE menu_id = ?");
+                        $stmtDel->execute([$menu_id]);
+
+                        $stmtImg = $pdo->prepare("INSERT INTO menu_image (menu_id, url, ordre) VALUES (?, ?, 1)");
+                        $stmtImg->execute([$menu_id, $urlBDD]);
+
+                        $succes .= " Photo du menu enregistrée avec succès.";
+                    }
+                }
                 } catch(PDOException $e){
                     $erreur = "Erreur SQL : " . $e->getMessage();
                 }
@@ -115,6 +142,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 try {
                     $pdo->beginTransaction();
                     $pdo->prepare("DELETE FROM menu_plat WHERE menu_id = ?")->execute([$menu_id]);
+                    $pdo->prepare("DELETE FROM menu_image WHERE menu_id = ?")->execute([$menu_id]);
                     $pdo->prepare("DELETE FROM menu WHERE menu_id = ?")->execute([$menu_id]);
 
                     $pdo->commit();
@@ -389,6 +417,9 @@ try {
 } catch (PDOException $e) {
     $plats = [];
 }
+
+$themes = $pdo->query("SELECT * FROM theme ORDER BY libelle ASC")->fetchAll(PDO::FETCH_ASSOC);
+$regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 
@@ -944,17 +975,45 @@ try {
                                 onclick="toggleForm('form-admin-nouveau-menu')">+ Nouveau menu</button>
                     </div>
                     <div class="commande-modif-form" id="form-admin-nouveau-menu" style="display:none;">
-                        <form method="POST" action="" class="modif-form">
+                        <form method="POST" action="" class="modif-form" enctype="multipart/form-data">
                             <input type="hidden" name="action" value="update_menu">
                             <h4 class="modif-form__titre">Nouveau menu</h4>
                             <div class="commande-field-row">
+                                <div class="commande-field">
+                                    <label class="commande-label">Photo du menu</label>
+                                    <input type="file" name="menu_photo" class="commande-input" accept="image/*">
+                                </div>
                                 <div class="commande-field">
                                     <label class="commande-label">Titre</label>
                                     <input type="text" name="titre" class="commande-input" required>
                                 </div>
                                 <div class="commande-field">
+                                    <label class="commande-label">Description</label>
+                                    <textarea name="description" class="commande-input avis-textarea" placeholder="Description du menu..." rows="3"></textarea>
+                                </div>
+                                <div class="commande-field">
+                                    <label class="commande-label">Thème</label>
+                                    <select name="theme_id" class="commande-input">
+                                        <?php foreach($themes as $t): ?>
+                                            <option value="<?= $t['theme_id'] ?>"><?= htmlspecialchars($t['libelle']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="commande-field">
+                                    <label class="commande-label">Régime</label>
+                                    <select name="regime_id" class="commande-input">
+                                        <?php foreach($regimes as $r): ?>
+                                            <option value="<?= $r['regime_id'] ?>"><?= htmlspecialchars($r['libelle']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="commande-field">
                                     <label class="commande-label">Prix / pers. (€)</label>
                                     <input type="number" name="prix" class="commande-input" step="0.50" min="0" required>
+                                </div>
+                                <div class="commande-field">
+                                    <label class="commande-label">Nb. personnes min.</label>
+                                    <input type="number" name="nb_personnes_min" class="commande-input" min="1" value="1" required>
                                 </div>
                                 <div class="commande-field">
                                     <label class="commande-label">Nombre de personnes minimum</label>
@@ -972,11 +1031,19 @@ try {
                         <?php foreach ($menus as $menu): ?>
                             <div class="employe-catalogue-item <?= !$menu['actif'] ? 'item--inactif' : '' ?>">
                                 <div class="employe-catalogue-item__header">
-                                    <div>
-                                        <span class="commande-item__num"><?= htmlspecialchars($menu['titre']) ?></span>
-                                        <span class="commande-statut <?= $menu['actif'] ? 'statut--accepte' : 'statut--annule' ?>">
-                                            <?= $menu['actif'] ? 'Actif' : 'Inactif' ?>
-                                        </span>
+                                    <div class="employe-catalogue-item__main">
+                                        <?php if (!empty($menu['image_url'])): ?>
+                                            <img src="../<?= htmlspecialchars($menu['image_url']) ?>" alt="<?= htmlspecialchars($menu['titre']) ?>" class="menu-vignette-admin">
+                                        <?php else: ?>
+                                            <div class="menu-vignette-placeholder">Aucune image</div>
+                                        <?php endif; ?>
+                                        
+                                        <div>
+                                            <span class="commande-item__num"><?= htmlspecialchars($menu['titre']) ?></span>
+                                            <span class="commande-statut <?= $menu['actif'] ? 'statut--accepte' : 'statut--annule' ?>">
+                                                <?= $menu['actif'] ? 'Actif' : 'Inactif' ?>
+                                            </span>
+                                        </div>
                                     </div>
                                     <div class="employe-catalogue-item__meta">
                                         <span><?= $menu['nb_plats'] ?> plats</span>
@@ -994,13 +1061,45 @@ try {
                                     </form>
                                 </div>
                                 <div class="commande-modif-form" id="form-admin-menu-<?= $menu['menu_id'] ?>" style="display:none;">
-                                    <form method="POST" action="" class="modif-form">
+                                    <form method="POST" action="" class="modif-form" enctype="multipart/form-data">
                                         <input type="hidden" name="action" value="update_menu">
                                         <input type="hidden" name="menu_id" value="<?= $menu['menu_id'] ?>">
                                         <div class="commande-field-row">
                                             <div class="commande-field">
+                                                <label class="commande-label">Changer la photo</label>
+                                                <input type="file" name="menu_photo" class="commande-input" accept="image/*">
+                                            </div>
+                                            <div class="commande-field">
                                                 <label class="commande-label">Titre</label>
                                                 <input type="text" name="titre" class="commande-input" value="<?= htmlspecialchars($menu['titre']) ?>">
+                                            </div>
+                                            <div class="commande-field">
+                                                <label class="commande-label">Description</label>
+                                                <textarea name="description" class="commande-input avis-textarea" placeholder="Description du menu..." rows="3"><?= htmlspecialchars($menu['description']) ?></textarea>
+                                            </div>
+                                            <div class="commande-field">
+                                                <label class="commande-label">Nb. personnes min.</label>
+                                                <input type="number" name="nb_personnes_min" class="commande-input" min="1" value="1" required>
+                                            </div>
+                                            <div class="commande-field">
+                                                <label class="commande-label">Thème</label>
+                                                <select name="theme_id" class="commande-input">
+                                                    <?php foreach($themes as $t): ?>
+                                                        <option value="<?= $t['theme_id'] ?>" <?= $t['theme_id'] == $menu['theme_id'] ? 'selected' : '' ?>>
+                                                            <?= htmlspecialchars($t['libelle']) ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                            <div class="commande-field">
+                                                <label class="commande-label">Régime</label>
+                                                <select name="regime_id" class="commande-input">
+                                                    <?php foreach($regimes as $r): ?>
+                                                        <option value="<?= $r['regime_id'] ?>" <?= $r['regime_id'] == $menu['regime_id'] ? 'selected' : '' ?>>
+                                                            <?= htmlspecialchars($r['libelle']) ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
                                             </div>
                                             <div class="commande-field">
                                                 <label class="commande-label">Prix / pers. (€)</label>

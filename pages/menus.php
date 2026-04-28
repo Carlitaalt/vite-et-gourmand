@@ -23,66 +23,25 @@ if(isset($pdo)){
         m.nombre_personne_minimum,
         m.prix_par_personne,
         (m.prix_par_personne * m.nombre_personne_minimum) AS prix_total,
-        t.nom AS theme_nom,
-        r.nom AS regime_nom
-        FROM menus m
-        LEFT JOIN theme t on t.theme_id = m.theme_id
+        mi.url AS image_url,
+        t.libelle AS theme_nom,
+        r.libelle AS regime_nom
+        FROM menu m
+        LEFT JOIN menu_image mi ON m.menu_id = mi.menu_id AND mi.ordre = 1
+        LEFT JOIN theme t ON m.theme_id = t.theme_id
+        LEFT JOIN regime r ON m.regime_id = r.regime_id
+        WHERE m.actif = 1
         ORDER BY m.menu_id ASC
         ");
         $menus = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
-        //Silencieux en production
+        // Ce message s'affichera seulement s'il y a une erreur réelle (ex: faute de frappe)
+        echo "<div style='background:white; color:red; padding:20px; border:2px solid red;'>";
+        echo "Erreur SQL : " . $e->getMessage();
+        echo "</div>";
     }
 }
 
-if(empty($menus)){
-    $menus = [
-        [
-            'menu_id' => 1,
-            'titre' => 'Le grand Festion de Noël',
-            'description' => 'Un menu somptueux pour célébrer les fêtes en grande pompe. Dinde rôtie aux marrons, bûche maison et vin chaud d\'épices.',
-            'conditions' => 'À commander 7 jours avant la prestation.',
-            'nombre_personne_minimum' => 10,
-            'prix_par_personne' => 32.00,
-            'prix_total' => 320.00,
-            'theme_nom' => 'Noël',
-            'regime_nom' => 'Classique'
-        ],
-        [
-            'menu_id' => 2,
-            'titre' => 'Printemps & Pâques',
-            'description' => 'Menu végétarien aux saveurs printanières : velouté d\'asperges, tarte aux légumes du jardin et dessert aux fruits rouges.',
-            'conditions' => 'À commander 5jours avant la prestation.',
-            'nombre_personne_minimum' => 8,
-            'prix_par_personne' => 22.50,
-            'prix_total' => 180,
-            'theme_nom' => 'Pâques',
-            'regime_nom' => 'Végétarien'
-        ],
-        [
-            'menu_id' => 3,
-            'titre' => 'Menu prestige Classique',
-            'description' => 'L\'excellence de la gastronomie française : foie gras mi-cuit, filet de boeuf Wellington et soufflé au Grand Marnier.',
-            'conditions' => 'À commander 10 jours avant la prestation.',
-            'nombre_personne_minimum' => 20,
-            'prix_par_personne' => 22.50,
-            'prix_total' => 450.00,
-            'theme_nom' => 'Prestige',
-            'regime_nom' => 'Classique'
-        ],
-        [
-            'menu_id' => 4,
-            'titre' => 'Coktail Dinatoire Végan',
-            'description' => 'Une expérience culinaire 100% végétale, colorée et conviviale. Tapas créatifs, bouchées gourmandes et desserts raffinés.',
-            'conditions' => 'À commander 5 jours avant la prestation.',
-            'nombre_personne_minimum' => 15,
-            'prix_par_personne' => 14.00,
-            'prix_total' => 210.00,
-            'theme_nom' => 'Végan',
-            'regime_nom' => 'Végan'
-        ]
-    ];
-}
 
 function toSlug(string $str): string {
     $str = mb_strtolower(trim($str), 'UTF-8');
@@ -217,11 +176,14 @@ $regimePillClass = [
 
                 <!-- Visuel -->
                 <div class="menu-card__img">
-                    <img src="<?= $rootPath ?>assets/images/menu-<?= $themeSlug ?>.jpg" alt="<?= htmlspecialchars($menu['titre']) ?>" class="menu-img">
-                    <div class="menu-card__img-placeholder"></div>
-                        <span class="badge-theme <?= $badgeClass ?>">
-                        <?= htmlspecialchars($menu['theme_nom'] ?? 'Classique') ?>
-                        </span>
+                    <?php if (!empty($menu['image_url'])): ?>
+                        <img src="../<?= htmlspecialchars($menu['image_url']) ?>" alt="<?= htmlspecialchars($menu['titre']) ?>">
+                    <?php else: ?>
+                        <div class="menu-card__img-placeholder">Aucune image</div>
+                    <?php endif; ?>
+                    <span class="badge-theme <?= $badgeClass ?>">
+                        <?=  htmlspecialchars($menu['theme_nom'] ?? 'Classique') ?>
+                    </span>
                 </div>
 
                 <!-- Corps -->

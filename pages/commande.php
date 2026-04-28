@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
@@ -12,14 +13,8 @@ require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
 //Vérifier si l'utilisateur est connecté
-session_start();
 $estConnecte = isset($_SESSION['user_id']);
 
-//if(!$estConnecte) {
- //   header('Location: ' . $rootPath . 'connexion.php?redirect=commande');
-   // exit;
-//}
-    
 
 //Récupérer le menu pré-sélectionné depuis l'URL
 $menuIdPreselect = isset($_GET['menu']) ? (int)$_GET['menu'] : 0;
@@ -28,14 +23,14 @@ $menuIdPreselect = isset($_GET['menu']) ? (int)$_GET['menu'] : 0;
 $menus = [];
 if(isset($pdo)) {
     try {
-        $stmt = $pdo->query("SELECT m.menu_id, m.titre, m.nombre_personne_minimum, m.prix_par_personne,
-        (m.prix_par_personne * m.nombre_personne_minimum) AS prix_total,
-        t.nom AS theme_nom FROM menus m
-        LEFT JOIN theme ON t.theme_id = m.theme_id
-        ORDER BY m.titre ASC");
+        $stmt = $pdo->query("SELECT menu_id, titre, nombre_personne_minimum, prix_par_personne
+        FROM menu
+        WHERE actif = 1
+        ORDER BY titre ASC");
         $menus = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e){
         //Exception
+        $erreur = "Erreur SQL : " . $e->getMessage();
     }
 }
 
@@ -51,21 +46,26 @@ if(empty($menus)) {
 }
 
 //Récupérer les infos de l'utilisateur connecté
-$user = ['prenom' => '', 'nom' => '', 'email' => '', 'telephone' => '', 'adresse' => ''];
-if(isset($pdo) && $estConnecte) {
+$user = ['prenom' => '',
+        'nom' => '',
+        'email' => '',
+        'telephone' => '',
+        'adresse' => ''];
+
+if(isset($_SESSION['user_id'])) {
     try {
-        $stmt = $pdo->prepare("SELECT prenom, nom, email, telephone, adresse
-        FROM utilisateurs WHERE utilisateur_id = :id");
-        $stmt->execute([':id' => $_SESSION['user_id']]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC) ?: $user;
+        $stmtU = $pdo->prepare("SELECT nom, prenom, email, telephone, adresse_postale, ville
+                                FROM utilisateur
+                                WHERE utilisateur_id = ?");
+        $stmtU->execute([$_SESSION['user_id']]);
+        $userInfo = $stmtU->fetch(PDO::FETCH_ASSOC);
+
+        if($userInfo) {
+            $user = $userInfo;
+        }
     } catch (Exception $e) {
         //Exception
     }
-}
-
-//Données fictives utilisateur pour la démo
-if(empty($user['email'])) {
-    $user = ['prenom' => 'Marie', 'nom' => 'Dupont', 'email' => 'marie.dupont@email.com', 'telephone' => '06 12 34 56 78', 'adresse' => '12 rue des Roses, 33000 Bordeaux'];
 }
 
 $erreur = '';
@@ -77,44 +77,91 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     $datePresta = trim($_POST['date_prestation'] ?? '');
     $heurePresta = trim($_POST['heure_prestation'] ?? '');
     $adressePresta = trim($_POST['adresse_prestation'] ?? '');
+    $pretMateriel = isset($_POST['pret_materiel']) ? 1 : 0;
 
-    if(!$menuId || !$nbPersonnes ||empty($datePresta) ||empty($heurePresta) || empty($adressePresta)) {
+    if(!$menuId || $nbPersonnes <= 0 ||empty($datePresta) ||empty($heurePresta) || empty($adressePresta)) {
         $erreur = 'Veuillez remplir tous les champs obligatoires.';
     } else {
-        //Trouver le menu sélectionné
-        $menuChoisi = null;
-        foreach ($menus as $m) {
-            if ($m['menu_id'] === $menuId) {
-                $menuChoisi = $m;
-                break;
-            }
+        try {
+        $pdo->beginTransaction();
+
+        //Récupérer le menu en BDD pour avoir le vrai prix
+        $stmtM = $pdo->prepare("SELECT prix_par_personne, nombre_personne_minimum FROM menu WHERE menu_id = ? AND actif = 1");
+        $stmtM->execute([$menuId]);
+        $menuInfos = $stmtM->fetch();
+
+        if(!$menuInfos) {
+            throw new Exception("Le menu sélectionné n'est plus disponible.");
         }
 
-        if($menuChoisi && $nbPersonnes < $menuChoisi['nombre_personne_minimum']) {
-            $erreur = 'Le nombre de personnes minimum pour ce menu est de ' . $menuChoisi['nombre_personne_minimum'] . '.';
-        } else {
-            if(isset($pdo)) {
-                try {
-                    $stmt = $pdo->prepare("INSERT INTO commandes (utilisateur_id, menu_id, nb_personnes, date_prestation, heure_prestation, adresse_prestation, statut, created_at)
-                    VALUES (:uid, :mid, :nbp, :date, :heure, :adresse, 'en_attente', NOW())");
-                    $stmt->execute([
-                        ':uid' => $_SESSION['user_id'],
-                        ':mid' => $menuId,
-                        ':nbp' => $nbPersonnes,
-                        ':date' => $datePresta,
-                        ':heure' => $heurePresta,
-                        ':adresse' => $adressePresta
-                    ]);
-                    $succes = 'Votre commande a bien été enregistrée ! Vous recevrez un mail de confirmation.';
-                } catch (Exception $e) {
-                    $erreur = 'Une erreur est survenue. Veuillez réessayer.';
-                }
-            } else {
-                $succes = 'Commande simulée avec succès (mode demo) !';
-            }
+        if($nbPersonnes < $menuInfos['nombre_personne_minimum']) {
+            throw new Exception("Le minimum de personnes n'est pas atteint.");
         }
+
+        //Calculs financier
+        $prixUnitaire = (float)$menuInfos['prix_par_personne'];
+        $sousTotal = $prixUnitaire * $nbPersonnes;
+
+        //FRAIS DE LIVRAISON
+        $seuilGratuite = 200;
+        $fraisFixes = 15.00;
+
+        if($sousTotal >= $seuilGratuite) {
+            $fraisLivraison = 0;
+        } else {
+            $fraisLivraison = $fraisFixes;
+        }
+
+        //Logique de remise
+        $remise = ($sousTotal > 300) ? ($sousTotal * 0.10) : 0;
+        $totalFinal = $sousTotal - $remise + $fraisLivraison;
+
+        $stmtC = $pdo->prepare("INSERT INTO commande (
+                                    utilisateur_id,
+                                    statut_id,
+                                    date_commande,
+                                    date_prestation,
+                                    heure_livraison,
+                                    adresse_livraison,
+                                    ville_livraison,
+                                    pret_materiel,
+                                    nombre_personnes,
+                                    prix_total,
+                                    prix_livraison,
+                                    created_at
+                                    ) VALUES (?, 1, NOW(), ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        
+        $stmtC->execute([
+            $_SESSION['user_id'],
+            $datePresta,
+            $heurePresta,
+            $adressePresta,
+            $user['ville'],
+            $pretMateriel,
+            $nbPersonnes,
+            $totalFinal,
+            $fraisLivraison
+        ]);
+
+        $commandeId = $pdo->lastInsertId();
+
+        //Insertion dans 'commande_menu'
+        $stmtCM = $pdo->prepare("INSERT INTO commande_menu (commande_id, menu_id, quantite, prix_unitaire)
+                                VALUES (?, ?, ?, ?)");
+        $stmtCM->execute([$commandeId, $menuId, $nbPersonnes, $prixUnitaire]);
+
+        $pdo->commit();
+        $succes = "Votre commande n°$commandeId a été validée avec succès !";
+        
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $erreur = $e->getMessage();
     }
 }
+}
+
 
 //Construire le JSON des menus pour le JS
 $menusJson = json_encode($menus);
@@ -207,7 +254,7 @@ $menusJson = json_encode($menus);
                 <div class="commande-bloc__body">
                     <div class="commande-field">
                         <label for="menu_id" class="commande-label">Menu <span class="auth-required">*</span></label>
-                        <select name="menu_id" id="menu_id" class="commande_input commande-select" required>
+                        <select name="menu_id" id="menu_id" class="commande-input commande-select" required>
                             <option value="">- Sélectionnez un menu -</option>
                             <?php foreach($menus as $m): ?>
                                 <option value="<?= $m['menu_id'] ?>" data-prix="<?= $m['prix_par_personne'] ?>" data-min="<?= $m['nombre_personne_minimum'] ?>" <?= ($menuIdPreselect === $m['menu_id']) ? 'selected' : '' ?>>
@@ -222,7 +269,7 @@ $menusJson = json_encode($menus);
                     <label for="nb-personnes" class="commande-label">Nombre de personnes <span class="auth-required">*</span></label>
                     <div class="commande-nb-wrap">
                         <button type="button" class="commande-nb-btn" id="nb-moins">-</button>
-                        <input type="number" id="nb_personnes" name="nb_personnes" class="commande_input commande-nb-input" value="1" min="1" required>
+                        <input type="number" id="nb_personnes" name="nb_personnes" class="commande-input commande-nb-input" value="1" min="1" required>
                         <button type="button" class="commande-nb-btn" id="nb-plus">+</button>
                     </div>
                     <span class="commande-nb-hint"></span>
@@ -240,7 +287,7 @@ $menusJson = json_encode($menus);
                         <div class="commande-field-row">
                             <div class="commande-field">
                                 <label for="date_prestation" class="commande-label">Date <span class="auth-required">*</span></label>
-                                <input type="date" id="date_prestation" name="date_prestation" class="commande_input" required min="<?= date('Y-m-d', strtotime('+1 day')) ?>">
+                                <input type="date" id="date_prestation" name="date_prestation" class="commande-input" required min="<?= date('Y-m-d', strtotime('+1 day')) ?>">
                             </div>
                             <div class="commande-field">
                                 <label for="heure_prestation" class="commande-label">Heure souhaitée <span class="auth-required">*</span></label>
@@ -254,6 +301,18 @@ $menusJson = json_encode($menus);
                                 <input type="text" id="adresse_prestation" name="adresse_prestation" class="commande-input" placeholder="12 rue des Lilas, 75001 Paris" value="<?= htmlspecialchars($_POST['adresse_prestation'] ?? '') ?>" required>
                             </div>
                             <span class="commande-livraison-info" id="livraison-info"></span>
+                        </div>
+
+                        <div class="commande-option-item mt-3 mb-3">
+                            <div class="d-flex align-items-center">
+                                <input type="checkbox" id="pret_materiel" name="pret_materiel" value="1">
+                                <label for="pret_materiel" class="commande-label ms-3">
+                                    Besoin de prêt de matériel (Vaiselle, couverts, tables...)
+                                </label>
+                            </div>
+                            <p style="font-size: 0.85rem; color: #555; margin-left: 28px; margin-top: 5px;">
+                                Service gratuit. Nous inclurons le nécessaire selon le nombre de convives.
+                            </p>
                         </div>
                         <button type="button" class="commande-btn-calcul" id="btn-calcul-livraison">
                             <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -314,5 +373,119 @@ $menusJson = json_encode($menus);
         <?php endif; ?>
     </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Sélection des éléments
+    const menuSelect = document.getElementById('menu_id');
+    const nbInput = document.getElementById('nb_personnes');
+    const btnMoins = document.getElementById('nb-moins');
+    const btnPlus = document.getElementById('nb-plus');
+    const hint = document.querySelector('.commande-nb-hint');
+
+    // Éléments de la sidebar récapitulative
+    const recapMenu = document.getElementById('recap-menu');
+    const recapNb = document.getElementById('recap-nb');
+    const recapPrix = document.getElementById('recap-prix-menu');
+    const recapLivraison = document.getElementById('recap-livraison');
+    const recapTotal = document.getElementById('recap-total');
+    const recapRemiseLigne = document.getElementById('recap-remise-ligne');
+    const recapRemiseVal = document.getElementById('recap-remise');
+
+    if(!menuSelect || !nbInput) return;
+
+    // 2. La fonction de calcul globale
+    function updateAll() {
+        const selectedOption = menuSelect.options[menuSelect.selectedIndex];
+        
+        if (selectedOption && selectedOption.value !== "") {
+            // --- GESTION DU MINIMUM ---
+            const minAllowed = parseInt(selectedOption.dataset.min) || 1;
+            const prixUnit = parseFloat(selectedOption.dataset.prix) || 0;
+            
+            nbInput.min = minAllowed;
+            // Si l'utilisateur a saisi un chiffre trop petit, on remet le minimum
+            if (parseInt(nbInput.value) < minAllowed) {
+                nbInput.value = minAllowed;
+            }
+            
+            const nb = parseInt(nbInput.value);
+            if (hint) hint.textContent = `Minimum requis : ${minAllowed} personnes.`;
+
+            // --- CALCULS ---
+            const sousTotal = prixUnit * nb;
+            
+            // Remise de 10% si le total menu dépasse 300€
+            const remise = (sousTotal > 300) ? (sousTotal * 0.10) : 0;
+            
+            // Livraison gratuite si le total menu dépasse 200€
+            const seuilGratuite = 200;
+            const fraisLivraison = (sousTotal >= seuilGratuite) ? 0 : 15.00;
+            
+            const totalFinal = sousTotal - remise + fraisLivraison;
+
+            // --- MISE À JOUR VISUELLE (SIDEBAR) ---
+            if (recapMenu) recapMenu.textContent = selectedOption.text.split('-')[0].trim();
+            if (recapNb) recapNb.textContent = nb + " pers.";
+            if (recapPrix) recapPrix.textContent = sousTotal.toFixed(2) + " €";
+            
+            // Affichage/Masquage de la ligne remise
+            if (recapRemiseLigne) {
+                if (remise > 0) {
+                    recapRemiseLigne.style.display = 'flex';
+                    recapRemiseVal.textContent = "-" + remise.toFixed(2) + " €";
+                } else {
+                    recapRemiseLigne.style.display = 'none';
+                }
+            }
+
+            // Affichage livraison
+            if (recapLivraison) {
+                recapLivraison.textContent = (fraisLivraison === 0) ? "Gratuit" : "15,00 €";
+            }
+
+            // Total final
+            if (recapTotal) recapTotal.textContent = totalFinal.toFixed(2) + " €";
+            
+            // Petit message d'info livraison sous l'adresse
+            const infoLivraison = document.getElementById('livraison-info');
+            if (infoLivraison) {
+                if (fraisLivraison === 0) {
+                    infoLivraison.textContent = "Bravo ! Livraison offerte.";
+                    infoLivraison.style.color = "green";
+                } else {
+                    const restant = seuilGratuite - sousTotal;
+                    infoLivraison.textContent = `Plus que ${restant.toFixed(2)}€ pour la livraison gratuite.`;
+                    infoLivraison.style.color = "inherit";
+                }
+            }
+        }
+    }
+
+    // 3. Événements (Clics et Changements)
+    
+    // Bouton Plus
+    btnPlus.addEventListener('click', function() {
+        nbInput.value = parseInt(nbInput.value) + 1;
+        updateAll(); // On recalcule tout
+    });
+
+    // Bouton Moins
+    btnMoins.addEventListener('click', function() {
+        const minAllowed = parseInt(nbInput.min) || 1;
+        if (parseInt(nbInput.value) > minAllowed) {
+            nbInput.value = parseInt(nbInput.value) - 1;
+            updateAll(); // On recalcule tout
+        }
+    });
+
+    // Changement de menu ou saisie manuelle du nombre
+    menuSelect.addEventListener('change', updateAll);
+    nbInput.addEventListener('input', updateAll);
+
+    // Initialisation au chargement de la page
+    updateAll();
+});
+</script>
 
 <?php require_once '../includes/footer.php'; ?>

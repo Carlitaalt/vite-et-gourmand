@@ -3663,6 +3663,22 @@ textarea:focus-visible {
     white-space: no-wrap;
 }
 
+.employe-catalogue-item__main {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* Espace entre l'image et le texte */
+}
+
+.menu-vignette-admin {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    flex-shrink: 0;
+    display: block;
+}
+
 /* RESPONSIVE */
 
 @media (max-width: 768px) {
