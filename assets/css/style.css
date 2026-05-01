@@ -486,9 +486,11 @@ textarea:focus-visible {
 
 .hero-title {
     font-family: var(--font-titre);
-    font-size: clamp(28px, 6vw, 48px);
+    font-size: clamp(32px, 6vw, 56px);
     font-weight: 700;
     color: var(--creme);
+    line-height: 1.1;
+    margin-bottom: 20px;
 }
 
 .hero-title-accent {
@@ -497,10 +499,11 @@ textarea:focus-visible {
 }
 
 .hero-desc {
-    font-size: 16px;
+    font-size: 18px;
     color: rgba(245, 237, 214, 0.75);
-    line-height: 1.8;
-    max-width: 500px;
+    line-height: 1.6;
+    max-width: 600px;
+    margin: 0 auto 30px;
 }
 
 .hero-actions {
@@ -509,6 +512,24 @@ textarea:focus-visible {
     flex-wrap: wrap;
     gap: 12px;
     align-items: center;
+}
+
+@media (max-width: 576px){
+    .hero-content-box {
+        padding: 30px 20px;
+        margin: 0 15px;
+    }
+    .hero-desc {
+        font-size: 16px;
+    }
+
+    .hero-actions {
+        flex-direction: column;
+    }
+
+    .hero-actions .btn {
+        width: 100%;
+    }
 }
 /* ----------------------- PRÉSENTATION ------------------ */
 
@@ -574,9 +595,11 @@ textarea:focus-visible {
 
 .pres-stat-number {
     font-family: var(--font-titre);
-    font-size: 36px;
-    font-weight: 700;
+    font-size: 42px;
+    font-weight: 800;
     color: var(--vert-fonce);
+    letter-spacing: 1px;
+    line-height: 2;
 }
 
 .pres-stat-label {
@@ -681,6 +704,12 @@ textarea:focus-visible {
 .section-process {
     padding: 100px 0;
     background: linear-gradient(to bottom, var(--creme) 0%, var(--blanc) 100%);
+}
+
+.section-process .row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
 }
 
 /* CARD */
@@ -1089,26 +1118,56 @@ textarea:focus-visible {
     border-radius: 20px;
     font-size: 11px;
     font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
 }
 
-.badge-theme--noel {
-    background: rgba(120, 20, 20, 0.88);
-    color: #FFD8D8;
+.badge-theme--mariage,
+.badge-theme--mariage-celebration {
+    background: var(--or);
+    color: var(--vert-fonce);
 }
 
-.badge-theme--paques {
-    background: rgba(44, 100, 50, 0.88);
-    color: #D6F5D9;
+.badge-theme--diner-gastronomique {
+    background: var(--or);
+    color: var(--vert-fonce);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.badge-theme--anniversaire {
+    background: rgba(180, 140, 40, 0.9);
+    color: #fff;
+}
+
+.badge-theme--seminaire-entreprise {
+    background: rgba(44, 74, 46, 0.9);
+    color: #D6E8D7;
+}
+
+.badge-theme--cocktail-dinatoire {
+    background: rgba(30, 30, 30, 0.85);
+    color: var(--or);
+}
+
+.badge-theme--buffet-champetre {
+    background: rgba(107, 158, 110, 0.9);
+    color: #ffffff;
+}
+
+.badge-theme--brunch-gourmand {
+    background: rgba(201, 168, 76, 0.85);
+    color: #fff;
+}
+
+.badge-theme--plateau-repas-chic {
+    background : #ccd5ae;
+    color: #588157;
 }
 
 .badge-theme--classique {
     background: rgba(44, 74, 46, 0.88);
     color: #D6E8D7;
-}
-
-.badge-theme--evenement {
-    background: rgba(120, 80, 10, 0.88);
-    color: #FFF0CC;
 }
 
 /* CORPS */
@@ -2556,43 +2615,43 @@ textarea:focus-visible {
 }
 
 .statut--attente {
-    background: rgba(201, 168, 76, 0.15);
-    color: #7A5A10;
+    background: rgba(255, 200, 0, 0.15);
+    color: #FFD54F;
 }
 
 .statut--accepte {
-    background: rgba(44, 106, 31, 0.12);
-    color: #2c6a1f;
+    background: rgba(76, 175, 80, 0.15);
+    color: #81C784;
 }
 
 .statut--prep {
-    background: rgba(61, 107, 64, 0.12);
-    color: var(--vert-moyen);
+    background: rgba(255, 152, 0, 0.15);
+    color: #FFB74D;
 }
 
 .statut--livraison {
-    background: rgba(44, 74, 180, 0.1);
-    color: #2c3eb4;
+    background: rgba(66, 133, 244, 0.15);
+    color: #90CAF9;
 }
 
 .statut--livre {
-    background: rgba(44, 106, 31, 0.15);
-    color: #2c6a1f;
+    background: rgba(56, 142, 60, 0.18);
+    color: #66BB6A;
 }
 
 .statut--materiel {
-    background: rgba(180, 100, 20, 0.12);
-    color: #7A4A10;
+    background: rgba(255, 167, 38, 0.18);
+    color: #FFCC80;
 }
 
 .statut--termine {
-    background: rgba(44, 74, 46, 0.12);
-    color: var(--vert-fonce);
+    background: rgba(27, 94, 32, 0.18);
+    color: #A5D6A7;
 }
 
 .statut--annule {
-    background: rgba(180, 40, 40, 0.1);
-    color: #b42828;
+    background: rgba(244, 67, 54, 0.18);
+    color: #FF5252;
 }
 
 /* BODY COMMANDE */
@@ -2780,12 +2839,12 @@ textarea:focus-visible {
     gap: 6px;
 }
 
-.star-label {
-    cursor: pointer;
+.star-radio {
+    display: none;
 }
 
-.star-label input {
-    display: none;
+.star-label {
+    cursor: pointer;
 }
 
 .star-icon {
@@ -3642,25 +3701,44 @@ textarea:focus-visible {
 
 /* BARRE DE PROGRESSION */
 
-.admin-progress-bar {
+.admin-progress-container {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    width: 100%;
+    min-width: 160px;
+}
+
+.admin-progress-bar {
+    flex: 1;
+    height: 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
 }
 
 .admin-progress-bar__fill {
-    height: 6px;
+    height: 100%;
     background: var(--vert-clair);
     border-radius: 3px;
-    flex-shrink: 0;
-    min-width: 4px;
     transition: width 0.3s;
+}
+
+.admin-progress-text {
+    flex: 0 0 40px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--texte-muted);
+    width: 40px;
+    text-align: right;
+    display: inline-block;
 }
 
 .admin-progress-bar span {
     font-size: 12px;
     color: var(--texte-muted);
-    white-space: no-wrap;
+    white-space: nowrap;
 }
 
 .employe-catalogue-item__main {

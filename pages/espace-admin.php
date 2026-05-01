@@ -1,8 +1,8 @@
 <?php
 ob_start();
 ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
+ini_set('display_startup_errors', 1);
 session_start();
 
 require_once '../includes/db.php';
@@ -88,8 +88,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             case 'update_menu':
                 $titre = trim($_POST['titre']);
                 $prix = $_POST['prix'];
-                $nb_pers_min = (int)($_POST['nb_personnes_min'] ?? 1);
+                $nb_pers_min = (int)($_POST['nombre_personne_minimum'] ?? 1);
                 $description = trim($_POST['description'] ?? '');
+                $conditions = trim($_POST['conditions'] ?? '');
                 $actif = isset($_POST['actif']) ? $_POST['actif'] : 1;
                 $theme_id = $_POST['theme_id'] ?? 1;
                 $regime_id = $_POST['regime_id'] ?? 1;
@@ -97,16 +98,16 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 try {
                     if($menu_id) {
-                        $sql = "UPDATE menu SET titre = ?, prix_par_personne = ?, nombre_personne_minimum = ?, description = ?,  actif = ?, theme_id = ?, regime_id = ?, updated_at = NOW() WHERE menu_id = ?";
+                        $sql = "UPDATE menu SET titre = ?, prix_par_personne = ?, nombre_personne_minimum = ?, description = ?, conditions = ?, actif = ?, theme_id = ?, regime_id = ?, updated_at = NOW() WHERE menu_id = ?";
                         $stmt = $pdo->prepare($sql);
-                        $stmt->execute([$titre, $prix, $nb_pers_min, $description, $actif, $theme_id, $regime_id, $menu_id]);
+                        $stmt->execute([$titre, $prix, $nb_pers_min, $description, $conditions, $actif, $theme_id, $regime_id, $menu_id]);
                         $succes = "Le menu '" . htmlspecialchars($titre) . "' a été mis à jour.";
                     } else {
                     //Création d'un nouveau menu
-                        $sql = "INSERT INTO menu (titre, prix_par_personne, nombre_personne_minimum, description, actif, theme_id, regime_id, created_at, updated_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
+                        $sql = "INSERT INTO menu (titre, prix_par_personne, nombre_personne_minimum, description, conditions, actif, theme_id, regime_id, created_at, updated_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
                         $stmt = $pdo->prepare($sql);
-                        $stmt->execute([$titre, $prix, $nb_pers_min, $description, $actif, $theme_id, $regime_id]);
+                        $stmt->execute([$titre, $prix, $nb_pers_min, $description, $conditions, $actif, $theme_id, $regime_id]);
                         $menu_id = $pdo->lastInsertId();
                         $succes = "Le nouveau menu a été crée.";
 
@@ -240,6 +241,83 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $erreur = "Erreur lors de la mise à jour : " . $e->getMessage();
                 }
                 break;
+
+                case 'update_statut':
+                    $commande_id = (int)$_POST['commande_id'];
+                    $nouveau_statut = (int)$_POST['nouveau_statut'];
+
+                    try {
+                        $stmtCheck = $pdo->prepare("SELECT statut_id FROM commande WHERE commande_id = ?");
+                        $stmtCheck->execute([$commande_id]);
+                        $actuel = $stmtCheck->fetchColumn();
+
+                        if($actuel != $nouveau_statut) {
+                            $pdo->beginTransaction();
+
+                            //MAJ du statut principal de la commande
+                            $stmtUpdateCmd = $pdo->prepare("UPDATE commande SET statut_id = ? WHERE commande_id = ?");
+                            $stmtUpdateCmd->execute([$nouveau_statut, $commande_id]);
+
+                            //Ajout dans l'historique
+                            $stmtInsertHist = $pdo->prepare("INSERT INTO commande_statut (commande_id, statut_id, date_modification) VALUES (?, ?, NOW())");
+                            $stmtInsertHist->execute([$commande_id, $nouveau_statut]);
+
+                            $pdo->commit();
+                            $succes = "Statut de la commande mis à jour.";
+                        } else {
+                            $erreur = "Le nouveau statut est identique au statut actuel. Aucune modification. effectuée.";
+                        }
+                        
+                    } catch (Exception $e) {
+                        if($pdo->inTransaction()) $pdo->rollBack();
+                        $erreur = "Erreur lors du changement de statut : " . $e->getMessage();
+                    }
+                    break;
+
+                case 'annuler_commande':
+                    $commande_id = (int)$_POST['commande_id'];
+                    $motif = !empty($_POST['motif_annulation']) ? trim($_POST['motif_annulation']) : 'Annulation client';
+                    $mode_contact = !empty($_POST['mode_contact']) ? $_POST['mode_contact'] : 'Email';
+                    $statut_annule = 8;
+
+                    try {
+                        $pdo->beginTransaction();
+                        //MAJ du statut de la commande
+                        $stmtAnnule = $pdo->prepare("UPDATE commande SET
+                            statut_id = ?,
+                            motif_annulation = ?,
+                            mode_contact = ?
+                            WHERE commande_id = ?");
+                        $stmtAnnule->execute([$statut_annule, $motif, $mode_contact, $commande_id]);
+
+                        $stmtInsertHist = $pdo->prepare("INSERT INTO commande_statut (commande_id, statut_id, date_modification) VALUES (?, ?, NOW())");
+                        $stmtInsertHist->execute([$commande_id, $statut_annule]);
+
+                        $pdo->commit();
+                        $succes = "La commande a été annulée.";
+                    } catch(Exception $e) {
+                        if($pdo->inTransaction()) $pdo->rollBack();
+                        $erreur = "Erreur lors de l'annulation : " . $e->getMessage();
+                    }
+                    break;
+
+                    case 'valider_avis':
+                        $avis_id = (int)$_POST['avis_id'];
+                        $stmt = $pdo->prepare("UPDATE avis SET statut_avis_id = 2 WHERE avis_id = ?");
+                        $stmt->execute([$avis_id]);
+                        $succes = "L'avis a été publié.";
+                        break;
+
+                    case 'refuser_avis':
+                        $avis_id = (int)$_POST['avis_id'];
+                        $stmt = $pdo->prepare("UPDATE avis SET statut_avis_id = 3 WHERE avis_id = ?");
+                        $stmt->execute([$avis_id]);
+                        $succes = "L'avis a été refusé.";
+                        break;
+
+                    default:
+                        $erreur = "Action inconnue : " . $_POST['action'];
+                        break;
     }
 }
  
@@ -288,13 +366,21 @@ if(!$admin) {
 }
 //Commandes
 try {
-    $sqlCommandes ="SELECT c.*, u.prenom AS client_prenom, u.nom AS client_nom, m.titre AS menu_titre
-                     FROM commande c
-                     INNER JOIN utilisateur u ON c.utilisateur_id = u.utilisateur_id
-                     INNER JOIN commande_menu cm ON c.commande_id = cm.commande_id
-                     INNER JOIN menu m ON cm.menu_id = m.menu_id
-                     GROUP BY c.commande_id
-                     ORDER BY c.date_commande DESC";
+    $sqlCommandes ="SELECT c.*,
+                    u.prenom AS client_prenom,
+                    u.nom AS client_nom,
+                    u.email AS client_email,
+                    u.telephone AS client_telephone,
+                    m.titre AS menu_titre,
+                    c.nombre_personnes,
+                    c.heure_livraison,
+                    c.date_prestation
+                    FROM commande c
+                    INNER JOIN utilisateur u ON c.utilisateur_id = u.utilisateur_id
+                    INNER JOIN commande_menu cm ON c.commande_id = cm.commande_id
+                    INNER JOIN menu m ON cm.menu_id = m.menu_id
+                    GROUP BY c.commande_id
+                    ORDER BY c.date_commande DESC";
     $commandes = $pdo->query($sqlCommandes)->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $commandes = [];
@@ -307,7 +393,7 @@ $caTotal = 0;
 $statsParMenu = [];
 $ID_STATUT_TERMINE = 7;
 
-foreach($commandes as $cmd){
+foreach($commandes as &$cmd){
     $titre = $cmd['menu_titre'] ?? 'Menu inconnu';
 
     if(!isset($statsParMenu[$titre])){
@@ -320,7 +406,16 @@ foreach($commandes as $cmd){
             $caTotal += $cmd['prix_total'];
             $statsParMenu[$titre]['ca'] += $cmd['prix_total'];
     }
+    $stmtHistorique = $pdo->prepare("
+            SELECT cs.statut_id as statut, cs.date_modification as date, 'Admin' as auteur
+            FROM commande_statut cs
+            WHERE cs.commande_id = ?
+            ORDER BY cs.date_modification ASC
+            " );
+            $stmtHistorique->execute([$cmd['commande_id']]);
+            $cmd['$historique'] = $stmtHistorique->fetchAll(PDO::FETCH_ASSOC);
 }
+unset($cmd);
 
 
 //Compteurs pour les widgets
@@ -347,7 +442,7 @@ $statutColors = [
     3 => 'statut--prep',
     4 => 'statut--livraison',
     5 => 'statut--livre',
-    6 => 'statut--retour',
+    6 => 'statut--materiel',
     7 => 'statut--termine',
     8 => 'statut--annule',
 ];
@@ -355,29 +450,33 @@ $statutColors = [
 $statutTransitions = [
     1 => [2, 8],
     2 => [3, 8],
-    3 => [4, 8],
+    3 => [4],
     4 => [5],
-    5 => [6],
-    6 => [7],
+    5 => [6, 7],
+    6 => [7]
 ];
 
 // Avis
 try {
     $stmtAvis = $pdo->query("
         SELECT a.avis_id, a.note, a.description as commentaire, a.created_at as date,
-               sa.libelle as statut,
-               u.prenom AS client,
-               m.titre AS menu_titre
+                a.statut_avis_id,
+                sa.libelle as statut_libelle,
+                u.prenom AS client,
+                u.nom AS client_nom,
+                m.titre AS menu_titre
         FROM avis a
         JOIN utilisateur u ON a.utilisateur_id = u.utilisateur_id
         JOIN commande c ON a.commande_id = c.commande_id
         JOIN commande_menu cm ON c.commande_id = cm.commande_id
         JOIN menu m ON cm.menu_id = m.menu_id
         JOIN statut_avis sa ON a.statut_avis_id = sa.statut_avis_id
-        GROUP BY a.avis_id
-        ORDER BY a.created_at DESC
+        ORDER BY (a.statut_avis_id = 1) DESC, a.created_at DESC
     ");
     $avis = $stmtAvis->fetchAll(PDO::FETCH_ASSOC);
+
+    //On met a jour le compteur pour les stats
+    $nbAvisAttente = count(array_filter($avis, fn($a) => $a['statut_avis_id'] === 1));
 } catch (PDOException $e) {
     $avis = [];
 }
@@ -698,7 +797,7 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                     <div class="admin-ca-card">
                         <div class="admin-ca-card__label">Chiffre d'affaires filtré</div>
                         <div class="admin-ca-card__val" id="ca-filtre-val"><?= number_format($caTotal, 2, ',', ' ') ?> €</div>
-                        <div class="admin-ca-card__sub" id="ca-filtre-nb"><?= count(array_filter($commandes, fn($c) => $c['statut'] === 'terminee')) ?> commandes terminées</div>
+                        <div class="admin-ca-card__sub" id="ca-filtre-nb"><?= count(array_filter($commandes, fn($c) => $c['statut_id'] === 7)) ?> commandes terminées</div>
                     </div>
                 </div>
  
@@ -739,8 +838,10 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                         <td><?= number_format($stats['ca'], 2, ',', ' ') ?> €</td>
                                         <td>
                                             <?php $part = $caTotal > 0 ? round($stats['ca'] / $caTotal * 100) : 0; ?>
-                                            <div class="admin-progress-bar">
-                                                <div class="admin-progress-bar__fill" style="width:<?= $part ?>%"></div>
+                                            <div class="admin-progress-container">
+                                                <div class="admin-progress-bar">
+                                                    <div class="admin-progress-bar__fill" style="width:<?= $part ?>%"></div>
+                                                </div>
                                                 <span><?= $part ?>%</span>
                                             </div>
                                         </td>
@@ -802,9 +903,13 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                         <div>
                                             <div class="employe-client-nom"><?= htmlspecialchars($cmd['client_prenom'] . ' ' . $cmd['client_nom']) ?></div>
                                             <div class="employe-client-contact">
-                                                <a href="mailto:<?= $cmd['client_email'] ?>"><?= $cmd['client_email'] ?></a>
+                                                <a href="mailto:<?= htmlspecialchars($cmd['client_email'] ?? '') ?>">
+                                                    <?= htmlspecialchars($cmd['client_email'] ?? 'Non renseigné') ?>
+                                                </a>
                                                 &nbsp;·&nbsp;
-                                                <a href="tel:<?= $cmd['client_telephone'] ?>"><?= $cmd['client_telephone'] ?></a>
+                                                <a href="tel:<?= htmlspecialchars($cmd['client_telephone'] ?? '') ?>">
+                                                    <?= htmlspecialchars($cmd['client_telephone'] ?? 'Non renseigné') ?>
+                                                </a>
                                             </div>
                                         </div>
                                     </div>
@@ -814,23 +919,30 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                     </div>
                                     <div class="commande-info-row">
                                         <span class="commande-info-label">Personnes</span>
-                                        <span class="commande-info-val"><?= $cmd['nb_personnes'] ?> pers.</span>
+                                        <span class="commande-info-val"><?= $cmd['nombre_personnes'] ?? '0' ?> pers.</span>
                                     </div>
                                     <div class="commande-info-row">
                                         <span class="commande-info-label">Date</span>
-                                        <span class="commande-info-val"><?= date('d/m/Y', strtotime($cmd['date_prestation'])) ?> à <?= $cmd['heure_prestation'] ?></span>
+                                        <span class="commande-info-val"><?= date('d/m/Y', strtotime($cmd['date_prestation'])) ?> à <?= $cmd['heure_livraison'] ?></span>
                                     </div>
                                 </div>
  
                                 <div class="commande-suivi">
                                     <h4 class="commande-suivi__titre">Historique</h4>
                                     <ul class="suivi-timeline">
-                                        <?php foreach (($cmd['historique'] ?? []) as $etape): ?>
-                                            <li class="suivi-etape suivi-etape--done">
+                                        <?php
+                                        $stmtH = $pdo->prepare("SELECT * FROM commande_statut WHERE commande_id = ? ORDER BY date_modification ASC");
+                                        $stmtH->execute([$cmd['commande_id']]);
+                                        $historique = $stmtH->fetchAll();
+                                        
+                                        foreach ($historique as $etape): ?>
+                                            <li class="suivi-etape done">
                                                 <div class="suivi-etape__dot"></div>
                                                 <div class="suivi-etape__content">
-                                                    <span class="suivi-etape__label"><?= $statutLabels[$etape['statut']] ?? $etape['statut'] ?></span>
-                                                    <span class="suivi-etape__date"><?= date('d/m/Y H:i', strtotime($etape['date'])) ?> — <?= $etape['auteur'] ?></span>
+                                                    <span class="suivi-etape__label"><?= $statutLabels[$etape['statut_id']]?></span>
+                                                    <span class="suivi-etape__date">
+                                                        le <?= date('d/m à H:i', strtotime($etape['date_modification'])) ?>
+                                                    </span>
                                                 </div>
                                             </li>
                                         <?php endforeach; ?>
@@ -914,8 +1026,7 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
             <!-- ====== ONGLET AVIS ====== -->
             <div class="compte-panel" id="tab-avis-employe">
                 <?php
-                $avisEnAttente = array_filter($avis, fn($a) => $a['statut'] === 'en_attente');
-                $avisTraites   = array_filter($avis, fn($a) => $a['statut'] !== 'en_attente');
+                $avisEnAttente = array_filter($avis, fn($a) => (int)$a['statut_avis_id'] === 1);
                 ?>
                 <?php if (!empty($avisEnAttente)): ?>
                     <h3 class="employe-section-titre">À valider (<?= count($avisEnAttente) ?>)</h3>
@@ -992,6 +1103,10 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                     <textarea name="description" class="commande-input avis-textarea" placeholder="Description du menu..." rows="3"></textarea>
                                 </div>
                                 <div class="commande-field">
+                                    <label class="commande-label">Conditions</label>
+                                    <textarea name="conditions" id="conditions" class="commande-input avis-textarea" rows="3" placeholder="Ex : À commander 5 jours avant, minimum 10 personnes..."></textarea>
+                                </div>
+                                <div class="commande-field">
                                     <label class="commande-label">Thème</label>
                                     <select name="theme_id" class="commande-input">
                                         <?php foreach($themes as $t): ?>
@@ -1013,11 +1128,7 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                 </div>
                                 <div class="commande-field">
                                     <label class="commande-label">Nb. personnes min.</label>
-                                    <input type="number" name="nb_personnes_min" class="commande-input" min="1" value="1" required>
-                                </div>
-                                <div class="commande-field">
-                                    <label class="commande-label">Nombre de personnes minimum</label>
-                                    <input type="number" name="nb_personnes_min" class="commande-input" min="1" value="1" required>
+                                    <input type="number" name="nombre_personne_minimum" class="commande-input" min="1" value="1" required>
                                 </div>
                             </div>
                             <div class="modif-form__actions">
@@ -1027,6 +1138,7 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                             </div>
                         </form>
                     </div>
+                </div>
                     <div class="employe-catalogue">
                         <?php foreach ($menus as $menu): ?>
                             <div class="employe-catalogue-item <?= !$menu['actif'] ? 'item--inactif' : '' ?>">
@@ -1067,7 +1179,18 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                         <div class="commande-field-row">
                                             <div class="commande-field">
                                                 <label class="commande-label">Changer la photo</label>
-                                                <input type="file" name="menu_photo" class="commande-input" accept="image/*">
+                                                <div style="display:flex; flex-direction:column; gap:5px;">
+                                                    <input type="file" name="menu_photo" class="commande-input" accept="image/*">
+                                                    <?php if(!empty($menu['image_url'])): ?>
+                                                        <span style="font-size: 0.70em; color: #c4973a">
+                                                            Fichier actuel : <?= basename($menu['image_url']) ?>
+                                                        </span>
+                                                    <?php else: ?>
+                                                        <span style="font-size:0.70em; color: #999;">
+                                                            Aucune photo enregistrée
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
                                             </div>
                                             <div class="commande-field">
                                                 <label class="commande-label">Titre</label>
@@ -1075,11 +1198,15 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                             </div>
                                             <div class="commande-field">
                                                 <label class="commande-label">Description</label>
-                                                <textarea name="description" class="commande-input avis-textarea" placeholder="Description du menu..." rows="3"><?= htmlspecialchars($menu['description']) ?></textarea>
+                                                <textarea name="description" class="commande-input avis-textarea" placeholder="Description du menu..." rows="3"><?= htmlspecialchars($menu['description'] ?? "") ?></textarea>
+                                            </div>
+                                            <div class="commande-field">
+                                                <label class="commande-label">Conditions</label>
+                                                <textarea name="conditions" class="commande-input avis-textarea" placeholder="Ex : À commander 5 jours avant, minimum 10 personnes..."><?= htmlspecialchars($menu['conditions'] ?? "") ?></textarea>
                                             </div>
                                             <div class="commande-field">
                                                 <label class="commande-label">Nb. personnes min.</label>
-                                                <input type="number" name="nb_personnes_min" class="commande-input" min="1" value="1" required>
+                                                <input type="number" name="nombre_personne_minimum" class="commande-input" min="1" value="<?= $menu['nombre_personne_minimum'] ?? 1 ?>" required>
                                             </div>
                                             <div class="commande-field">
                                                 <label class="commande-label">Thème</label>
@@ -1171,6 +1298,7 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                         <option value="Entrée">Entrée</option>
                                         <option value="Plat">Plat principal</option>
                                         <option value="Dessert">Dessert</option>
+                                        <option value="Boisson">Boisson</option>
                                     </select>
                                 </div>
                             </div>
@@ -1190,11 +1318,14 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
 
                     <div class="employe-catalogue">
                         <?php foreach ($plats as $plat): ?>
-                            <div class="employe-catalogue-item">
+                            <div class="employe-catalogue-item <?= !$plat['actif'] ? 'item--inactif' : '' ?>">
                                 <div class="employe-catalogue-item__header">
                                     <div>
                                         <span class="commande-item__num"><?= htmlspecialchars($plat['titre_plat']) ?></span>
-                                        <span class="commande-statut statut--prep"><?= $plat['categorie'] ?></span>
+                                        <span class="commande-statut <?= $plat['actif'] ? 'statut--accepte' : 'statut--annule' ?>">
+                                            <?= $plat['actif'] ? 'Actif' : 'Inactif' ?>
+                                        </span>
+                                        <span class="commande-statut statut--prep"><?= htmlspecialchars($plat['categorie']) ?></span>
                                         <small>Menu rattaché : <strong><?= htmlspecialchars($plat['menu_titre'] ?? 'Aucun') ?></strong></small>
                                     </div>
                                 </div>
@@ -1238,6 +1369,7 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                                     <option value="Entrée" <?= $plat['categorie'] == 'Entrée' ? 'selected' : '' ?>>Entrée</option>
                                                     <option value="Plat" <?= $plat['categorie'] == 'Plat' ? 'selected' : '' ?>>Plat</option>
                                                     <option value="Dessert" <?= $plat['categorie'] == 'Dessert' ? 'selected' : '' ?>>Dessert</option>
+                                                    <option value="Boisson" <?= $plat['categorie'] == 'Boisson' ? 'selected' : '' ?>>Boisson</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -1436,7 +1568,7 @@ function mettreAJourCA() {
         cmdFiltrees = cmdFiltrees.filter(c => c.created_at <= dateFin + ' 23:59:59');
     }
  
-    const ca = cmdFiltrees.reduce((sum, c) => sum + c.prix_total, 0);
+    const ca = cmdFiltrees.reduce((sum, c) => sum + parseFloat(c.prix_total), 0);
     document.getElementById('ca-filtre-val').textContent =
         ca.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
     document.getElementById('ca-filtre-nb').textContent = cmdFiltrees.length + ' commande(s) terminée(s)';
@@ -1455,14 +1587,15 @@ document.querySelectorAll('.compte-tab').forEach(button => {
         const targetName = this.getAttribute('data-tab');
         const targetPanel = document.getElementById('tab-' + targetName);
 
-        //Si on arrive ici, on change l'affichage
-        document.querySelectorAll('.compte-tab').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.compte-panel').forEach(p => p.classList.remove('active'));
+        if(targetPanel){
+            document.querySelectorAll('.compte-tab').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.compte-panel').forEach(p => p.classList.remove('active'));
 
-        this.classList.add('active');
-        targetPanel.classList.add('active');
-
-        console.log("Section " + targetName + "affichée avec succès !");
+            this.classList.add('active');
+            targetPanel.classList.add('active');
+        } else {
+            console.error("Erreur : Impossible de trouver le panneau ID'tab-" + targetName + "'");
+        }
     };
 });
  
@@ -1543,6 +1676,27 @@ function toggleHoraire(checkbox, jour) {
 // Initialiser le graphique si on arrive directement sur l'onglet stats
 if (document.getElementById('tab-statistiques').classList.contains('active')) {
     creerGraphique(typeGraphique);
+}
+
+function editMenu(data){
+    document.getElementById('modalMenuTitle').innerText = "Modifier le menu : " + data.titre;
+
+    document.getElementById('menu_id').value = data.menu_id;
+    document.getElementById('menu_titre').value = data.titre;
+    document.getElementById('menu_prix').value = data.prix_par_personne;
+    document.getElementById('menu_nb_pers').value = data.nombre_personne_minimum;
+    document.getElementById('menu_description').value = data.description;
+    document.getElementById('menu_conditions').value = data.conditions;
+
+    document.getElementById('menu_theme').value = data.theme_id;
+    document.getElementById('menu_regime').value = data.regime_id;
+    document.getElementById('menu_actif').value = data.actif ? '1' : '0';
+}
+
+function resetMenuModal(){
+    document.getElementById('modalMenuTitle').innerText = "Créer un nouveau menu";
+    document.getElementById('menu_id'). value = "";
+    document.getElementById('menu_form').reset();
 }
 
 </script>

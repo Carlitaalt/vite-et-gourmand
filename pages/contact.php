@@ -61,7 +61,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mail->Body = $contenuMail;
 
             $mail->send();
-            $succes = 'Votre message a bien été envoyé ! (Via Mailtrap)';
+            $succes = 'Votre message a bien été envoyé !';
         } catch (Exception $e) {
             $erreur = "Le message n'a pas pu être envoyé. Erreur: {$mail->ErrorInfo}";
         }

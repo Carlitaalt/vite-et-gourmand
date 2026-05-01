@@ -91,9 +91,9 @@ require_once '../includes/navbar.php';
         <?php
 
         $team = [
-            ["nom"=>"Julie", "role"=>"Cheffe", "img"=>"team-1.jpg"],
-            ["nom"=>"José", "role"=>"Logistique", "img"=>"team-2.jpg"],
-            ["nom"=>"Romain", "role"=>"Serveur", "img"=>"team-3.jpg"]
+            ["nom"=>"Julie", "role"=>"Cheffe", "img"=>"team-1.jpg", "bio" => "Passionnée par les produits de saison, elle crée des menus qui racontent une histoire."],
+            ["nom"=>"José", "role"=>"Logistique", "img"=>"team-2.jpg", "bio" => "Expert en organisation, il veille à ce que chaque détail technique soit parfait."],
+            ["nom"=>"Romain", "role"=>"Serveur", "img"=>"team-3.jpg", "bio" => "Son sens du service et son sourire sont les garants d'une ambiance réussie."]
         ];
         ?>
 
@@ -101,18 +101,17 @@ require_once '../includes/navbar.php';
             <div class="col-md-5 col-lg-4">
                 <div class="card team-card">
                     <div class="team-img-wrapper">
-                        <img src="<?= $rootPath ?>assets/images/<?= $member['img'] ?>" alt="Team" class="team-img">
+                        <img src="<?= $rootPath ?>assets/images/<?= $member['img'] ?>" alt="Photo de <?= htmlspecialchars($member['nom']) ?>" class="team-img">
                     </div>
                     <div class="team-info">
-                        <h3 class="team-name"><?= $member['nom'] ?></h3>
-                        <span class="team-role"><?= $member['role'] ?></span>
+                        <h3 class="team-name"><?= htmlspecialchars($member['nom']) ?></h3>
+                        <span class="team-role"><?= htmlspecialchars($member['role']) ?></span>
                         <p class="team-bio">
-                            Passionnée par la cuisine et le service <?= $member['nom'] ?> contribue chaque jour à faire de vos événements une réussite.
+                            <?= htmlspecialchars($member['bio']) ?>
                         </p>
                     </div>
                 </div>
             </div>
-
         <?php endforeach; ?>
         
         </div>
@@ -175,7 +174,7 @@ require_once '../includes/navbar.php';
         $avis = [];
         if(isset($pdo)){
             try {
-                $stmt = $pdo->query("SELECT a.*, u.prenom, u.nom FROM avis a JOIN utilisateurs u ON a.id_utilisateur = u.id WHERE a.valide = 1 ORDER BY a.date_creation DESC LIMIT 6");
+                $stmt = $pdo->query("SELECT a.note, a.description as commentaire, a.created_at, u.prenom, u.nom FROM avis a JOIN utilisateur u ON a.utilisateur_id = u.utilisateur_id WHERE a.statut_avis_id = 2 ORDER BY a.created_at DESC LIMIT 6");
                 $avis = $stmt->fetchAll(PDO::FETCH_ASSOC);
             } catch (Exception $e) {
                 //Silencieux en production
@@ -229,7 +228,7 @@ require_once '../includes/navbar.php';
             <p class="cta-desc">Contactez-nous pour obtenir un devis personnalisé ou découvrez dès maintenant nos menus.</p>
             <div class="cta-actions">
                 <a href="<?= $rootPath ?>pages/menus.php" class="btn-vg-primary">Voir nos menus</a>
-                <a href="<?= $rootPath ?>pages/contact.php" class="btn-or ms-3">Demander un devis</a>
+                <a href="<?= $rootPath ?>pages/contact.php" class="btn-or">Demander un devis</a>
             </div>
         </div>
     </div>

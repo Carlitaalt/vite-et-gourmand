@@ -30,92 +30,56 @@ if(!$user) {
 }
 
 
-//Données fictives commandes
-$commandes = [
-    [
-    'commande_id' => 1001,
-    'menu_titre' => 'Le Grand Festin de Noël',
-    'nb_personnes' => 12,
-    'date_prestation' => '2026-12-24',
-    'heure_prestation' => '19:00',
-    'adresse_prestation' => '5 allée des Pins, 33000 Bordeaux',
-    'prix_total' => 384.00,
-    'statut' => 'en_attente',
-    'created_at' => '2026-11-10 14:32:00',
-    'historique' => [
-        ['statut' => 'en_attente', 'date' => '2026-11-10 14:32:00'],
-    ],
-    'avis' => null,
-    ],
-    [
-    'commande_id' => 1002,
-    'menu_titre' => 'Menu Prestige Classique',
-    'nb_personnes' => 20,
-    'date_prestation' => '2026-09-15',
-    'heure_prestation' => '12:30',
-    'adresse_prestation' => '18 rue du Château, 33100 Bordeaux',
-    'prix_total' => 450.00,
-    'statut' => 'terminee',
-    'created_at' => '2026-08-01 10:00:00',
-    'historique' => [
-        ['statut' => 'en_attente', 'date' => '2026-08-01 10:00:00'],
-        ['statut' => 'accepte', 'date' => '2026-08-02 09:15:00'],
-        ['statut' => 'en_cours_de_livraison', 'date' => '2026-09-15 11:00:00'],
-        ['statut' => 'livre', 'date' => '2026-09-15 12:20:00'],
-        ['statut' => 'terminee', 'date' => '2026-09-15 12:20:00'],
-    ],
-    'avis' => null,
-    ],
-    [
-    'commande_id' => 1003,
-    'menu_titre' => 'Printemps & Pâques',
-    'nb_personnes' => 8,
-    'date_prestation' => '2026-04-20',
-    'heure_prestation' => '13:00',
-    'adresse_prestation' => '3 impasse des Lilas, 33200 Bordeaux',
-    'prix_total' => 180.00,
-    'statut' => 'terminee',
-    'created_at' => '2026-03-15 16:45:00',
-    'historique' => [
-        ['statut' => 'en_attente',
-        'date' => '2026-03-15 16:45:00'],
-        ['statut' => 'accepte',
-        'date' => '2026-03-16 10:00:00'],
-        ['statut' => 'en_preparation',
-        'date' => '2026-04-19 14:00:00'],
-        ['statut' => 'terminee',
-        'date' => '2026-04-20 13:10:00'],
-    ],
-    'avis' => ['note' => 5, 'commentaire' => 'Excellent service, tout était parfait !'],
-    ],
+try {
+    $sql = "SELECT c.*, m.titre AS menu_titre,
+        (SELECT url FROM menu_image WHERE menu_id = m.menu_id LIMIT 1) as menu_image
+        FROM commande c
+        INNER JOIN commande_menu cm ON c.commande_id = cm.commande_id
+        INNER JOIN menu m ON cm.menu_id = m.menu_id
+        WHERE c.utilisateur_id = ?
+        ORDER BY c.date_commande DESC";
 
-];
+    $stmtC = $pdo->prepare($sql);
+    $stmtC->execute([$_SESSION['user_id']]);
+    $commandes = $stmtC->fetchAll(PDO::FETCH_ASSOC);
+
+    //Récupère l'historique de chaque commande
+    foreach($commandes as &$cmd) {
+        $stmtH = $pdo->prepare("SELECT * FROM commande_statut WHERE commande_id = ? ORDER BY date_modification ASC");
+        $stmtH->execute([$cmd['commande_id']]);
+        $cmd['historique'] = $stmtH->fetchAll(PDO::FETCH_ASSOC);
+    }
+    unset($cmd);
+} catch (PDOException $e){
+    $commandes = [];
+    $erreur = "Erreur lors de la récupération de vos commandes";
+}
 
 //Séparer commandes en cours et historique
-$commandesEnCours = array_filter($commandes, fn($c) => !in_array($c['statut'], ['terminee', 'annulee']));
-$commandesHistorique = array_filter($commandes, fn($c) => in_array($c['statut'], ['terminee', 'annulee']));
+$commandesEnCours = array_filter($commandes, fn($c) => !in_array($c['statut_id'], [7, 8]));
+$commandesHistorique = array_filter($commandes, fn($c) => in_array($c['statut_id'], [7, 8]));
 
 //Labels et couleurs des statuts
 $statutLabels = [
-    'en_attente' => 'En attente',
-    'accepte' => 'Acceptée',
-    'en_preparation' => 'En préparation',
-    'en_cours_de_livraison' => 'En cours de livraison',
-    'livre' => 'Livrée',
-    'en_attente_materiel' => 'Retour matériel',
-    'terminee' => 'Terminée',
-    'annulée' => 'Annulée',
+    1 => 'En attente',
+    2 => 'Acceptée',
+    3 => 'En préparation',
+    4 => 'En cours de livraison',
+    5 => 'Livrée',
+    6 => 'En attente de matériel',
+    7 => 'Terminée',
+    8 => 'Annulée',
 ];
 
 $statutColors = [
-    'en_attente' => 'statut--attente',
-    'accepte' => 'statut--accepte',
-    'en_preparation' => 'statut--prep',
-    'en_cours_de_livraison' => 'statut--livraison',
-    'livre' => 'statut--livre',
-    'en_attente-materiel' => 'statut--materiel',
-    'terminee' => 'statut--termine',
-    'annulee' => 'statut--annule',
+    1 => 'statut--attente',
+    2 => 'statut--accepte',
+    3 => 'statut--prep',
+    4 => 'statut--livraison',
+    5 => 'statut--livre',
+    6 => 'statut--materiel',
+    7 => 'statut--termine',
+    8 => 'statut--annule',
 ];
 
 $erreur = '';
@@ -150,12 +114,38 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $stmt->execute([':id' => $_SESSION['user_id']]);
         $user = $stmt->fetch();
     } elseif ($_POST['action'] === 'annuler_commande') {
-        $succes = 'Commande #' . (int)$_POST['commande_id'] . 'annulée.';
+        $commande_id = (int)$_POST['commande_id'];
+        //On vérifie que la commande appartient au user
+        $upd = $pdo->prepare("UPDATE commande SET statut_id = 8 WHERE commande_id = ? AND utilisateur_id = ? AND statut_id = 1");
+        $upd->execute([$commande_id, $_SESSION['user_id']]);
+
+        if($upd->rowCount() > 0) {
+            $pdo->prepare("INSERT INTO commande_statut (commande_id, statut_id, date_modification) VALUES (?, 8, NOW())")->execute([$commande_id]);
+            $succes = "Commande annulée.";
+        }
+
+    }elseif ($_POST['action'] === 'donner_avis'){
+        $commande_id = (int)$_POST['commande_id'];
+        $note = (int)$_POST['note'];
+        $description = trim($_POST['commentaire']);
+        $user_id = $_SESSION['user_id'];
+
+        //Vérifier si un avis n'existe pas déjà
+        $check = $pdo->prepare("SELECT avis_id FROM avis WHERE commande_id = ?");
+        $check->execute([$commande_id]);
+
+        if($check->fetch()){
+            $erreur = "Vous avez déjà déposé un avis pour cette commande.";
+        } else {
+            $ins = $pdo->prepare("INSERT INTO avis (commande_id, utilisateur_id, note, description, statut_avis_id,  created_at) VALUES (?, ?, ?, ?, 1, NOW())");
+            $ins->execute([$commande_id, $user_id, $note, $description]);
+            $succes = "Votre avis a été soumis et sera visible après validation.";
+        }
+
+    
     } elseif ($_POST['action'] === 'modifier_commande') {
         $succes = 'Commande modifiée avec succès.';
-    } elseif ($_POST['action'] === 'donner_avis') {
-        $succes = 'Votre avis a été soumis et sera visible après validation.';
-    } elseif ($_POST['action'] === 'supprimer_compte') {
+    }elseif ($_POST['action'] === 'supprimer_compte') {
         try {
             //Suppression dans la base de données
             $delete = $pdo->prepare("DELETE FROM utilisateur WHERE utilisateur_id = :id");
@@ -173,6 +163,43 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
     }
 }
+
+try {
+    //Récupérer les commandes
+    $sql = "SELECT c.*, m.titre AS menu_titre,
+            (SELECT url FROM menu_image WHERE menu_id = m.menu_id LIMIT 1) as menu_image
+            FROM commande c
+            INNER JOIN commande_menu cm ON c.commande_id = cm.commande_id
+            INNER JOIN menu m ON cm.menu_id = m.menu_id
+            WHERE c.utilisateur_id = ?
+            ORDER BY c.date_commande DESC";
+
+    $stmtC = $pdo->prepare($sql);
+    $stmtC->execute([$_SESSION['user_id']]);
+    $commandes = $stmtC->fetchAll(PDO::FETCH_ASSOC);
+
+    //Pour chaque commande on cherche l'historique et l'avis
+    foreach($commandes as &$cmd){
+        $stmtH = $pdo->prepare("SELECT * FROM commande_statut WHERE commande_id = ? ORDER BY date_modification  ASC");
+        $stmtH->execute([$cmd['commande_id']]);
+        $cmd['historique'] = $stmtH->fetchAll(PDO::FETCH_ASSOC);
+
+        //On récupère l'avis lié a cette commande
+        $stmtA = $pdo->prepare("SELECT * FROM avis WHERE commande_id = ?");
+        $stmtA->execute([$cmd['commande_id']]);
+        $cmd['avis_existant'] = $stmtA->fetch(PDO::FETCH_ASSOC);
+
+    }
+    unset($cmd);
+} catch (PDOException $e){
+    $commandes = [];
+    $erreur = "Erreur de base de données : " . $e->getMessage();
+}
+
+//Séparation des commandes (historique/en cours)
+$commandesEnCours = array_filter($commandes, fn($c) => !in_array($c['statut_id'], [7, 8]));
+$commandesHistorique = array_filter($commandes, fn($c) => in_array($c['statut_id'], [7, 8]));
+
 ?>
 
 <section class="section-compte">
@@ -245,8 +272,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                 <div class="commande-item__header">
                                     <div class="commande-item__id">
                                         <span class="commande-item__num">Commande #<?= $cmd['commande_id'] ?></span>
-                                        <span class="commande-statut <?= $statutColors[$cmd['statut']] ?? '' ?>">
-                                            <?= $statutLabels[$cmd['statut']] ?? $cmd['statut'] ?>
+                                        <span class="commande-statut <?= $statutColors[$cmd['statut_id']] ?? '' ?>">
+                                            <?= $statutLabels[$cmd['statut_id']] ?? $cmd['statut_id'] ?>
                                         </span>
                                     </div>
                                     <div class="commande-item__prix"><?= number_format($cmd['prix_total'], 2, ',', ' ') ?> €</div>
@@ -260,15 +287,16 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                         </div>
                                         <div class="commande-info-row">
                                             <span class="commande-info-label">Personnes</span>
-                                            <span class="commande-info-val"><?= $cmd['nb_personnes'] ?>pers.</span>
+                                            <span class="commande-info-val"><?= $cmd['nombre_personnes'] ?> personnes.</span>
                                         </div>
                                         <div class="commande-info-row">
                                             <span class="commande-info-label">Date</span>
-                                            <span class="commande-info-val"><?= date('d/m/Y', strtotime($cmd['date_prestation'])) ?> à <?= $cmd['heure_prestation'] ?></span>
+                                            <span class="commande-info-val"><?= date('d/m/Y', strtotime($cmd['date_prestation'])) ?> à <?= $cmd['heure_livraison'] ?></span>
                                         </div>
                                         <div class="commande-info-row">
                                             <span class="commande-info-label">Adresse</span>
-                                            <span class="commande-info-val"><?= htmlspecialchars($cmd['adresse_prestation']) ?></span>
+                                            <span class="commande-info-val">
+                                                <?= htmlspecialchars($cmd['adresse_livraison']) ?></span>
                                         </div>
                                     </div>
 
@@ -280,8 +308,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                                 <li class="suivi-etape suivi-etape--done">
                                                     <div class="suivi-etape--dot"></div>
                                                     <div class="suivi-etape__content">
-                                                        <span class="suivi-etape__label"><?= $statutLabels[$etape['statut']] ?? $etape['statut'] ?></span>
-                                                        <span class="suivi-etape__date"><?= date('d/m/Y H:i', strtotime($etape['date'])) ?></span>
+                                                        <span class="suivi-etape__label"><?= $statutLabels[$etape['statut_id']] ?? $etape['statut_id'] ?></span>
+                                                        <span class="suivi-etape__date"><?= date('d/m/Y H:i', strtotime($etape['date_modification'])) ?></span>
                                                     </div>
                                                 </li>
                                                 <?php endforeach; ?>
@@ -290,10 +318,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                 </div>
 
                                 <!-- si attente -->
-                                 <?php if($cmd['statut'] === 'en_attente'): ?>
+                                 <?php if($cmd['statut_id'] === 1): ?>
                                     <div class="commande-item__actions">
                                         <!-- Modifier -->
-                                         <button class="btn-compte-action btn-compte-action--modifier" onclick="ouvrirModification(<?= $cmd['commande_id'] ?>">
+                                         <button class="btn-compte-action btn-compte-action--modifier" onclick="ouvrirModification(<?= $cmd['commande_id'] ?>)">
                                             Modifier
                                          </button>
                                          <!-- Annuler -->
@@ -315,7 +343,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                             <div class="commande-field-row">
                                                 <div class="commande-field">
                                                     <label for="" class="commande-label">Nombre de personnes</label>
-                                                    <input type="number" name="nb_personnes" class="commande-input" value="<?= $cmd['nb_personnes'] ?>" min="1">
+                                                    <input type="number" name="nombre_personnes" class="commande-input" value="<?= $cmd['nombre_personnes'] ?>">
                                                 </div>
                                                 <div class="commande-field">
                                                     <label for="" class="commande-label">Date de prestation</label>
@@ -325,11 +353,11 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                             <div class="commande-field-row">
                                                 <div class="commande-field">
                                                     <label for="" class="commande-label">Heure</label>
-                                                    <input type="time" name="heure_prestation" class="commande-input" value="<?= $cmd['heure_prestation'] ?>">
+                                                    <input type="time" name="heure_livraison" class="commande-input" value="<?= $cmd['heure_livraison'] ?>">
                                                 </div>
                                                 <div class="commande-field">
                                                     <label for="" class="commande-label">Adresse de livraison</label>
-                                                    <input type="text" name="adresse_prestation" class="commande-input" value="<?= htmlspecialchars($cmd['adresse_prestation']) ?>">
+                                                    <input type="text" name="adresse_livraison" class="commande-input" value="<?= htmlspecialchars($cmd['adresse_livraison']) ?? '' ?>">
                                                 </div>
                                             </div>
                                             <div class="modif-form__actions">
@@ -360,8 +388,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                     <div class="commande-item__header">
                                         <div class="commande-item__id">
                                             <span class="commande-item__num">Commande #<?= $cmd['commande_id'] ?></span>
-                                            <span class="commande-statut <?= $statutColors[$cmd['statut']] ?? '' ?>">
-                                                <?= $statutLabels[$cmd['statut']] ?? $cmd['statut'] ?>
+                                            <span class="commande-statut <?= $statutColors[$cmd['statut_id']] ?? '' ?>">
+                                                <?= $statutLabels[$cmd['statut_id']] ?? $cmd['statut_id'] ?>
                                             </span>
                                         </div>
                                         <div class="commande-item__prix"><?= number_format($cmd['prix_total'], 2, ',', ' ') ?> €</div>
@@ -374,11 +402,11 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                             </div>
                                             <div class="commande-info-row">
                                                 <span class="commande-info-label">Personnes</span>
-                                                <span class="commande-info-val"><?= $cmd['nb_personnes'] ?> pers.</span>
+                                                <span class="commande-info-val"><?= $cmd['nombre_personnes'] ?> personnes.</span>
                                             </div>
                                             <div class="commande-info-row">
                                                 <span class="commande-info-label">Date</span>
-                                                <span class="commande-info-val"><?= date('d/m/Y', strtotime($cmd['date_prestation'])) ?> à <?= $cmd['heure_prestation'] ?></span>
+                                                <span class="commande-info-val"><?= date('d/m/Y', strtotime($cmd['date_prestation'])) ?> à <?= $cmd['heure_livraison'] ?></span>
                                             </div>
                                         </div>
                                         <!-- Timeline historique -->
@@ -387,10 +415,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                             <ul class="suivi-timeline">
                                                 <?php foreach ($cmd['historique'] as $etape): ?>
                                                     <li class="suivi-etape suivi-etape--done">
-                                                        <div class="suivi-etape__dot"></div>
+                                                        <div class="suivi-etape--dot"></div>
                                                         <div class="suivi-etape__content">
-                                                            <span class="suivi-etape__label"><?= $statutLabels[$etape['statut']] ?? $etape['statut'] ?></span>
-                                                            <span class="suivi-etape__date"><?= date('d/m/Y H:i', strtotime($etape['date'])) ?></span>
+                                                            <span class="suivi-etape__label"><?= $statutLabels[$etape['statut_id']] ?? 'Statut' ?></span>
+                                                            <span class="suivi-etape__date"><?= date('d/m H:i', strtotime($etape['date_modification'])) ?></span>
                                                         </div>
                                                     </li>
                                                     <?php endforeach; ?>
@@ -407,7 +435,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
              <div class="compte-panel" id="tab-avis">
 
              <?php
-             $commandesAvis = array_filter($commandes, fn($c) => $c['statut'] === 'terminee');
+             $commandesAvis = array_filter($commandes, fn($c) => $c['statut_id'] === 7);
              
              if(empty($commandesAvis)): ?>
              <div class="compte-empty">
@@ -423,32 +451,39 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                 <span class="commande-info-label"><?= date('d/m/Y', strtotime($cmd['date_prestation'])) ?></span>
                             </div>
 
-                            <?php if($cmd['avis']): ?>
+                            <?php if(!empty($cmd['avis_existant'])): ?>
                                 <!-- Avis déjà donnée -->
                                  <div class="avis-donne">
                                     <div class="avis-donne__stars">
                                         <?php for($i = 1; $i <= 5; $i++): ?>
-                                            <span class="<?= $i <= $cmd['avis']['note'] ? 'star--on' : 'star--off' ?>">*</span>
+                                            <span class="star-icon <?= $i <= $cmd['avis_existant']['note'] ? 'star--on' : 'star--off' ?>">*</span>
                                             <?php endfor; ?>
                                     </div>
-                                    <p class="avis-donne__texte"><?= htmlspecialchars($cmd['avis']['commentaire']) ?></p>
-                                    <span class="avis-donne__label">Avis soumis - en attente de validation</span>
+                                    <p class="avis-donne__texte"><?= htmlspecialchars($cmd['avis_existant']['description']) ?></p>
+
+                                    <?php if($cmd['avis_existant']['statut_avis_id'] === 1): ?>
+                                        <p class="avis-donne__label status--attente">Avis soumis - en attente de validation</span>
+                                    <?php else: ?>
+                                        <p class="avis-donne__label status--accepte">Avis publié</span>
+                                    <?php endif; ?>
                                  </div>
                                  <?php else: ?>
                                     <!-- Formulaire avis -->
                                      <form method="POST" action="" class="avis-form">
                                         <input type="hidden" name="action" value="donner_avis">
                                         <input type="hidden" name="commande_id" value="<?= $cmd['commande_id'] ?>">
-                                        <div class="avis-form__stars" id="stars-<?= $cmd['commande_id'] ?>">
+                                        
+                                        <p class="commande-label">Votre note : </p>
+                                        <div class="avis-form__stars">
                                             <?php for ($i = 1; $i <= 5; $i++): ?>
-                                                <label for="" class="star-label">
-                                                    <input type="radio" name="note" value="<?= $i ?>" required>
-                                                    <span class="star-icon">★</span>
-                                                </label>
+                                                    <input type="radio" name="note" value="<?= $i ?>" id="star-<?= $cmd['commande_id'] ?>-<?= $i ?>" class="star-radio" required>
+                                                    <label for="star-<?= $cmd['commande_id'] ?>-<?= $i ?>" class="star-label">
+                                                        <span class="star-icon">★</span>
+                                                    </label>
                                                 <?php endfor; ?>
                                         </div>
-                                        <div class="commande-field">
-                                            <label for="" class="commande-label">Votre commentaire</label>
+                                        <div class="commande-field mt-3">
+                                            <label class="commande-label">Votre commentaire</label>
                                             <textarea name="commentaire" class="commande-input avis-textarea" placeholder="Partagez votre expérience..." rows="3" required></textarea>
                                         </div>
                                         <button type="submit" class="btn btn-vg-primary mt-2">Envoyer mon avis →</button>

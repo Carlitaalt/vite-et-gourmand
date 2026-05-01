@@ -25,7 +25,7 @@ if(isset($pdo) && $id > 0) {
         LEFT JOIN theme t ON m.theme_id = t.theme_id
         LEFT JOIN regime r ON m.regime_id = r.regime_id
         LEFT JOIN menu_image mi ON m.menu_id = mi.menu_id AND mi.ordre = 1
-        WHERE m.menu_id = :id
+        WHERE m.menu_id = :id AND m.actif = 1
         ");
         $stmt->execute([':id' => $id]);
         $menu = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -37,6 +37,7 @@ if(isset($pdo) && $id > 0) {
                         FROM plat p
                         INNER JOIN menu_plat mp ON p.plat_id = mp.plat_id
                         WHERE mp.menu_id = :id
+                        AND p.actif = 1
                         ORDER BY FIELD(p.categorie, 'Entrée', 'Plat', 'Fromage', 'Dessert', 'Boisson')
                         ");
             $stmtPlats->execute([':id' => $id]);
@@ -63,18 +64,26 @@ if (!$menu) {
 
 $prixTotal = (float)($menu['prix_par_personne'] * $menu['nombre_personne_minimum']);
 
-$imagePath = !empty($menu['image_url']) ? $rootPath . $menu['image_url'] : $rootPath . 'assets/images/default-menu.jpg' . ($menu['theme_nom'] ?? 'classique') . '.jpg';
+$imagePath = !empty($menu['image_url']) ? "/vite-et-gourmand/" . $menu['image_url'] : "/vite-et-gourmand/assets/images/default-menu.jpg";
 
-$themeSlug = strtolower(trim($menu['theme_nom'] ?? 'classique'));
-$badgeClass = 'badge-theme--' . ($themeSlug ?: 'classique');
-$pillClass = 'regime--' . (strtolower(trim($menu['regime_nom'] ?? 'classique')) ?: 'classique');
+$themeLabel = $menu['theme_nom'] ?? 'Classique';
+$regimeLabel = $menu['regime_nom'] ?? 'Classique';
+
+$themeSlug = strtolower(trim($themeLabel));
+$themeSlug = str_replace([' ', '/'], '-', $themeSlug);
+$themeSlug = str_replace([' ', 'î', 'é', 'è', 'ê', 'à'], ['-', 'i', 'e', 'e', 'e', 'a'], $themeSlug);
+$regimeSlug = str_replace(' ', '-', $regimeSlug);
+$regimeSlug = str_replace([' ', 'î', 'é', 'è', 'ê', 'à'], ['-', 'i', 'e', 'e', 'e', 'a'], $regimeSlug);
+
+$badgeClass = 'badge-theme--' . $themeSlug;
+$pillClass = 'regime--' . $regimeSlug;
 
 ?>
 
 <!-- HERO DETAILS -->
 
 <section class="detail-hero">
-    <div class="detail-hero__bg" style="background-image: url('<?= $rootPath ?>assets/images/<?= htmlspecialchars($imagePath) ?>')"></div>
+    <div class="detail-hero__bg" style="background-image: url('<?= $imagePath ?>');"></div>
     <div class="detail-hero__overlay"></div>
     <div class="container detail-hero__content">
         <a href="<?= $rootPath ?>pages/menus.php" class="detail-back">
