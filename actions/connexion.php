@@ -42,6 +42,8 @@ if(empty($erreur)) {
             $erreur = 'Email ou mot de passe incorrect.';
 
         } else {
+            //On nettoie l'email de la session
+            unset($_SESSION['email_saisi']);
             connecter_utilisateur($user);
 
             //Rediriger vers la page demandée avant connexion, sinon l'accueil
@@ -73,6 +75,6 @@ if(empty($erreur)) {
     }
 
     $_SESSION['erreur_connexion'] = $erreur;
-    $_SESSION['email_saisi'] = htmlspecialchars($email);
+    $_SESSION['email_saisi'] = $email;
     header('Location: ../pages/connexion.php');
     exit;

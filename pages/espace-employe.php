@@ -9,12 +9,192 @@ $pageTitle = 'Espace Employé';
 $rootPath = '../';
 $currentPage = 'espace-employe';
 
+//Traitement POST
+$erreur = "";
+$succes = "";
+
+if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    switch($_POST['action']) {
+
+        case 'update_statut':
+            $commande_id = (int)$_POST['commande_id'];
+            $nouveau_statut = (int)$_POST['nouveau_statut'];
+            try {
+                $pdo->beginTransaction();
+
+                //Vérifier si le statut est différent
+                $stmtCheck = $pdo->prepare("SELECT statut_id FROM commande WHERE commande_id = ?");
+                $stmtCheck->execute([$commande_id]);
+                $actuel = $stmtCheck->fetchColumn();
+
+                if ($actuel != $nouveau_statut){
+                    $stmt = $pdo->prepare("UPDATE commande SET statut_id = ? WHERE commande_id = ?");
+                    $stmt->execute([$nouveau_statut, $commande_id]);
+
+                    $stmtHist = $pdo->prepare("INSERT INTO commande_statut (commande_id, statut_id, date_modification) VALUES (?, ?, NOW())");
+                    $stmtHist->execute([$commande_id, $nouveau_statut]);
+
+                    $pdo->commit();
+                    $succes = "Le statut de la commande #$commande_id a été mis à jour.";
+                } else {
+                    $pdo->rollback();
+                }
+            } catch (Exception $e){
+                if($pdo->inTransaction()) $pdo->rollBack();
+                $erreur = "Erreur statut : " . $e->getMessage();
+            }
+            break;
+
+        case 'annuler_commande':
+            $commande_id = (int)$_POST['commande_id'];
+            $motif = !empty($_POST['motif_annulation']) ? trim($_POST['motif_annulation']) : 'Annulé par le personnel';
+            $mode_contact = !empty($_POST['mode_contact']) ? $_POST['mode_contact'] : 'Téléphone';
+            $statut_annule = 8;
+
+            try {
+                $pdo->beginTransaction();
+                $stmt = $pdo->prepare("UPDATE commande SET statut_id = ?, motif_annulation = ?, mode_contact = ? WHERE commande_id = ?");
+                $stmt->execute([$statut_annule, $motif, $mode_contact, $commande_id]);
+
+                $stmtHist = $pdo->prepare("INSERT INTO commande_statut (commande_id, statut_id, date_modification) VALUES (?, ?, NOW())");
+                $stmtHist->execute([$commande_id, $statut_annule]);
+
+                $pdo->commit();
+                $succes = "Commande annulée et client notifié.";
+            } catch (Exception $e) {
+                if($pdo->inTransaction()) $pdo->rollBack();
+                $erreur = "Erreur annulation : " . $e->getMessage();
+            }
+            break;
+
+            //Gestion des menus
+            case 'update_menu':
+                $menu_id = !empty($_POST['menu_id']) ? (int)$_POST['menu_id'] : null;
+                $titre = trim($_POST['titre']);
+                $prix = (float)$_POST['prix'];
+                $actif = isset($_POST['actif']) ? (int)$_POST['actif'] : 1;
+
+                try {
+                    if($menu_id) {
+                        $stmt = $pdo->prepare("UPDATE menu SET titre = ?, prix_par_personne = ?, actif = ? WHERE menu_id = ?");
+                        $stmt->execute([$titre, $prix, $actif, $menu_id]);
+                        $succes = "Le menu a été mis à jour.";
+                    } else {
+                        //Création d'un nouveau menu
+                        $stmt = $pdo->prepare("INSERT INTO menu (titre, prix_par_personne, actif) VALUES (?, ?, ?)");
+                        $stmt->execute([$titre, $prix, $actif]);
+                        $succes = "Le nouveau menu a été créé.";
+                    }
+
+                    //Redirection pour rafraîchir les données et vider le POST
+                    header("Location: espace-employe.php?tab=menus");
+                    exit();
+                } catch (Exception $e) {
+                    $erreur = "Erreur menu : " . $e->getMessage();
+                }
+                break;
+
+            //Supprimer le menu
+            case 'delete_menu':
+                $menu_id = (int)$_POST['menu_id'];
+                try {
+                    $stmt = $pdo->prepare("DELETE FROM menu WHERE menu_id = ?");
+                    $stmt->execute([$menu_id]);
+                    header("Location: espace-employe.php?tab=menus");
+                    exit();
+                } catch (Exception $e) {
+                    $erreur = "Impossible de supprimer ce menu";
+                }
+                break;
+
+            //Gestion des plats
+            case 'update_plat':
+                $plat_id = !empty($_POST['plat_id']) ? (int)$_POST['plat_id'] : null;
+                $titre = trim($_POST['titre_plat']);
+                $desc = trim($_POST['description']);
+                $cat = $_POST['categorie'];
+                $actif = isset($_POST['actif']) ? (int)$_POST['actif'] : 1;
+                $menu_id = (int)$_POST['menu_id'];
+
+                try {
+                    $pdo->beginTransaction();
+                    if($plat_id) {
+                        //Mise à jour plat existant
+                        $stmt = $pdo->prepare("UPDATE plat SET titre_plat = ?, description = ?, categorie = ?, actif = ? WHERE plat_id = ?");
+                        $stmt->execute([$titre, $desc, $cat, $actif, $plat_id]);
+                    } else {
+                        //Création nouveau plat
+                        $stmt = $pdo->prepare("INSERT INTO plat (titre_plat, description, categorie, actif) VALUES (?, ?, ?, ?)");
+                        $stmt->execute([$titre, $desc, $cat, $actif]);
+                        $plat_id = $pdo->lastInsertId();
+
+                        //Lien avec le menu
+                        $stmtLien = $pdo->prepare("INSERT INTO menu_plat (menu_id, plat_id) VALUES (?, ?)");
+                        $stmtLien->execute([$menu_id, $plat_id]);
+                    }
+                    $pdo->commit();
+                    $succes = "Le plat a été enregistré.";
+                } catch(Exception $e) {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
+                    $erreur = "Erreur plat : " . $e->getMessage();
+                }
+                break;
+
+        //modération des avis
+        case 'valider_avis':
+            $avis_id = (int)$_POST['avis_id'];
+            $stmt = $pdo->prepare("UPDATE avis SET statut_avis_id = 2 WHERE avis_id = ?");
+            $stmt->execute([$avis_id]);
+            header("Location: espace-employe.php?tab=avis-employe");
+            exit();
+            $succes = "L'avis est désormais visible en ligne.";
+            break;
+
+        case 'refuser_avis':
+            $avis_id = (int)$_POST['avis_id'];
+            $stmt = $pdo->prepare("UPDATE avis SET statut_avis_id = 3 WHERE avis_id = ?");
+            $stmt->execute([$avis_id]);
+            header("Location: espace-employe.php?tab=avis-employe");
+            exit();
+            $succes = "L'avis a été rejeté.";
+            break;
+
+        //Mise à jour horaires
+        case 'update_horaires':
+            try {
+                $pdo->beginTransaction();
+                //Récupérer les données envoyé par le formulaire
+                foreach ($_POST['debut'] as $jour => $heure_ouv) {
+                    $heure_fer = $_POST['fin'][$jour];
+                    $estOuvert = isset($_POST['ouvert'][$jour]);
+
+                    $final_ouv = $estOuvert && !empty($heure_ouv) ? $heure_ouv : '00:00:00';
+                    $final_fer = $estOuvert && !empty($heure_fer) ? $heure_fer : '00:00:00';
+                 
+                    $stmt = $pdo->prepare("UPDATE horaire SET heure_ouverture = ?, heure_fermeture = ? WHERE jour = ?");
+                    $stmt->execute([$final_ouv, $final_fer, $jour]);
+                }
+
+                $pdo->commit();
+                $succes = "Les horaires du restaurant ont été mis à jour avec succès.";
+
+            } catch (Exception $e) {
+                if($pdo->inTransaction()) $pdo->rollBack();
+                $erreur = "Erreur lors de la mise à jour : " . $e->getMessage();
+            }
+            break;
+
+            default:
+            $erreur = "Action non autorisée ou inconnue.";
+            break;
+    }
+}
+
 require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
 //Données employé connecté
 $id_session = $_SESSION['user_id'] ?? null;
-
 if(!$id_session) {
     header('Location: ' . $rootPath . 'pages/accueil.php');
     exit();
@@ -30,265 +210,117 @@ $stmt->execute([':id' => $id_session]);
 $employe = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if(!$employe) {
-    die("Erreur: Votre compte est figuré comme employé, mais vous n'existez pas dans la table 'employes'. Veuillez contacter l'administrateur.");
+    die("Erreur: Compte employé non trouvé. Veuillez contacter l'administrateur.");
 }
-
 $employe['role_display'] = $employe['poste'] ?? 'Employé';
 
+if(isset($_GET['statut_ok'])) $succes = 'Le statut a été mis à jour.';
 
-//Données fictives commandes
-$commandes = [
-    [
-        'commande_id' => 1,
-        'client_prenom' => 'Marie',
-        'client_nom' => 'Durand',
-        'client_email' => 'mariedurand@gmail.com',
-        'client_telephone' => '0601020304',
-        'menu_titre' => 'Le Grand Festin de Noël',
-        'nb_personnes' => 12,
-        'date_prestation' => '2026-12-24',
-        'heure_prestation' => '19:00',
-        'adresse_prestation' => '123 Rue de la Paix, Paris',
-        'prix_total' => 384.00,
-        'statut' => 'en_attente',
-        'created_at' => '2026-11-10 14:30:00',
-        'materiel_prete' => 'true',
-        'historique' => [
-            ['statut' => 'en_attente', 'date' => '2026-11-10 14:30:00', 'auteur' => 'système'],
-        ],
-    ],
-    [
-        'commande_id'        => 1002,
-        'client_prenom'      => 'Jean',
-        'client_nom'         => 'Leclerc',
-        'client_email'       => 'jean.leclerc@email.com',
-        'client_telephone'   => '06 98 76 54 32',
-        'menu_titre'         => 'Menu Prestige Classique',
-        'nb_personnes'       => 20,
-        'date_prestation'    => '2026-09-15',
-        'heure_prestation'   => '12:30',
-        'adresse_prestation' => '18 rue du Château, 33100 Bordeaux',
-        'prix_total'         => 450.00,
-        'statut'             => 'accepte',
-        'created_at'         => '2026-08-01 10:00:00',
-        'materiel_prete'     => false,
-        'historique'         => [
-            ['statut' => 'en_attente', 'date' => '2026-08-01 10:00:00', 'auteur' => 'Système'],
-            ['statut' => 'accepte',    'date' => '2026-08-02 09:15:00', 'auteur' => 'Lucas Martin'],
-        ],
-    ],
-    [
-        'commande_id'        => 1003,
-        'client_prenom'      => 'Sophie',
-        'client_nom'         => 'Bernard',
-        'client_email'       => 'sophie.b@email.com',
-        'client_telephone'   => '07 11 22 33 44',
-        'menu_titre'         => 'Printemps & Pâques',
-        'nb_personnes'       => 8,
-        'date_prestation'    => '2026-04-20',
-        'heure_prestation'   => '13:00',
-        'adresse_prestation' => '3 impasse des Lilas, 33200 Bordeaux',
-        'prix_total'         => 180.00,
-        'statut'             => 'en_preparation',
-        'created_at'         => '2026-03-15 16:45:00',
-        'materiel_prete'     => false,
-        'historique'         => [
-            ['statut' => 'en_attente',    'date' => '2026-03-15 16:45:00', 'auteur' => 'Système'],
-            ['statut' => 'accepte',       'date' => '2026-03-16 10:00:00', 'auteur' => 'Lucas Martin'],
-            ['statut' => 'en_preparation','date' => '2026-04-19 14:00:00', 'auteur' => 'Lucas Martin'],
-        ],
-    ],
-    [
-        'commande_id'        => 1004,
-        'client_prenom'      => 'Pierre',
-        'client_nom'         => 'Moreau',
-        'client_email'       => 'pierre.moreau@email.com',
-        'client_telephone'   => '06 55 44 33 22',
-        'menu_titre'         => 'Soirée Entreprise Premium',
-        'nb_personnes'       => 50,
-        'date_prestation'    => '2026-05-10',
-        'heure_prestation'   => '19:30',
-        'adresse_prestation' => '7 avenue Victor Hugo, 33000 Bordeaux',
-        'prix_total'         => 1250.00,
-        'statut'             => 'terminee',
-        'created_at'         => '2026-04-01 09:00:00',
-        'materiel_prete'     => true,
-        'historique'         => [
-            ['statut' => 'en_attente',              'date' => '2026-04-01 09:00:00', 'auteur' => 'Système'],
-            ['statut' => 'accepte',                 'date' => '2026-04-02 10:00:00', 'auteur' => 'Lucas Martin'],
-            ['statut' => 'en_preparation',          'date' => '2026-05-09 14:00:00', 'auteur' => 'Lucas Martin'],
-            ['statut' => 'en_cours_de_livraison',   'date' => '2026-05-10 18:00:00', 'auteur' => 'Lucas Martin'],
-            ['statut' => 'livre',                   'date' => '2026-05-10 19:20:00', 'auteur' => 'Lucas Martin'],
-            ['statut' => 'en_attente_materiel',     'date' => '2026-05-10 19:25:00', 'auteur' => 'Lucas Martin'],
-            ['statut' => 'terminee',                'date' => '2026-05-20 10:00:00', 'auteur' => 'Lucas Martin'],
-        ],
-    ],
-];
 
-//Données fictives avis à valider
-$avis = [
-    [
-        'avis_id' => 1,
-        'commande_id' => 1002,
-        'client' => 'Sophie Bernard',
-        'menu_titre' => 'Printemps & Pâques',
-        'note' => 4,
-        'commentaire' => 'Très bon repas, service impeccable.',
-        'date' => '2026-04-25 10:00:00',
-        'statut' => 'en_attente',
-    ],
-    [
-        'avis_id' => 2,
-        'commande_id' => 1004,
-        'client' => 'Pierre Moreau',
-        'menu_titre' => 'Soirée Entreprise Premium',
-        'note' => 5,
-        'commentaire' => 'Excellente prestation, tout le monde a adoré !',
-        'date' => '2026-05-15 14:30:00',
-        'statut' => 'en_attente',
-    ],
-    [
-        'avis_id' => 3,
-        'commande_id' => 1003,
-        'client' => 'Jean Leclerc',
-        'menu_titre' => 'Menu Prestige Classique',
-        'note' => 3,
-        'commentaire' => 'Bon repas mais un peu en retard.',
-        'date' => '2026-04-20 12:00:00',
-        'statut' => 'en_attente',
-    ],
-];
+//Récupération des commandes
+$stmtC = $pdo->query("SELECT c.*, u.prenom as client_prenom, u.nom as client_nom, u.email as client_email, u.telephone as client_telephone,
+            (SELECT m.titre
+            FROM commande_menu cm
+            JOIN menu m ON cm.menu_id = m.menu_id
+            WHERE cm.commande_id = c.commande_id
+            LIMIT 1) AS menu_titre
+            FROM commande c
+            JOIN utilisateur u ON c.utilisateur_id = u.utilisateur_id
+            ORDER BY c.date_prestation DESC");
+$commandes = $stmtC->fetchAll(PDO::FETCH_ASSOC);
 
-//Données fictives plats
-$plats = [
-    ['plat_id' => 1, 'nom' => 'Foie gras maison',           'categorie' => 'Entrée',  'allergenes' => 'Gluten', 'actif' => true],
-    ['plat_id' => 2, 'nom' => 'Velouté de champignons',     'categorie' => 'Entrée',  'allergenes' => 'Lait',   'actif' => true],
-    ['plat_id' => 3, 'nom' => 'Magret de canard',           'categorie' => 'Plat',    'allergenes' => '—',      'actif' => true],
-    ['plat_id' => 4, 'nom' => 'Risotto aux truffes',        'categorie' => 'Plat',    'allergenes' => 'Lait',   'actif' => true],
-    ['plat_id' => 5, 'nom' => 'Bûche de Noël chocolat',     'categorie' => 'Dessert', 'allergenes' => 'Gluten, Lait, Œufs', 'actif' => true],
-    ['plat_id' => 6, 'nom' => 'Sorbet fruits de saison',    'categorie' => 'Dessert', 'allergenes' => '—',      'actif' => false],
-];
+//Récupération des avis
+$stmtA = $pdo->prepare("SELECT a.avis_id,
+                                a.note,
+                                a.description as commentaire,
+                                a.created_at as date,
+                                a.statut_avis_id,
+                                u.prenom,
+                                u.nom,
+                                CONCAT(u.prenom, ' ', u.nom) as client,
+                                (SELECT m.titre
+                                FROM commande_menu cm
+                                JOIN menu m ON cm.menu_id = m.menu_id
+                                WHERE cm.commande_id = a.commande_id LIMIT 1) as menu_titre
+                        FROM avis a 
+                        JOIN utilisateur u ON a.utilisateur_id = u.utilisateur_id
+                        ORDER BY a.created_at DESC
+                        ");
 
-//Données fictives menus
-$menus = [
-    ['menu_id' => 1, 'titre' => 'Le Grand Festin de Noël', 'prix_par_personne' => 32.00, 'nb_plats' => 6, 'actif' => true],
-    ['menu_id' => 2, 'titre' => 'Menu Prestige Classique', 'prix_par_personne' => 22.50, 'nb_plats' => 4, 'actif' => true],
-    ['menu_id' => 3, 'titre' => 'Printemps & Pâques', 'prix_par_personne' => 22.50, 'nb_plats' => 5, 'actif' => false],
-];
+$stmtA->execute();
+$avis = $stmtA->fetchAll(PDO::FETCH_ASSOC);
 
-//Labels et couleurs statuts
+//Récupération des PLATS
+$stmtP = $pdo->query("SELECT * FROM plat ORDER BY categorie, titre_plat");
+$plats = $stmtP->fetchAll(PDO::FETCH_ASSOC);
+
+//Récupération des menus
+$stmtM = $pdo->query("SELECT m.*, (SELECT COUNT(*) FROM menu_plat mp WHERE mp.menu_id = m.menu_id) as nb_plats
+                    FROM menu m");
+$menus = $stmtM->fetchAll(PDO::FETCH_ASSOC);
+
+//Récuparation des horaires
+$stmtH = $pdo->query("SELECT * FROM horaire ORDER BY horaire_id ASC");
+$rows = $stmtH->fetchAll(PDO::FETCH_ASSOC);
+$horaires = [];
+foreach($rows as $r){
+    $horaires[] = [
+        'horaire_id' => $r['horaire_id'],
+        'jour' => $r['jour'],
+        'ouvert' => ($r['heure_ouverture'] !== '00:00:00' && $r['heure_ouverture'] !== null),
+        'debut' => $r['heure_ouverture'],
+        'fin' => $r['heure_fermeture']
+    ];
+}
+
+//Labels statuts pour l'affichage
 $statutLabels = [
-    'en_attente'              => 'En attente',
-    'accepte'                 => 'Acceptée',
-    'en_preparation'          => 'En préparation',
-    'en_cours_de_livraison'   => 'En cours de livraison',
-    'livre'                   => 'Livrée',
-    'en_attente_materiel'     => 'Retour matériel',
-    'terminee'                => 'Terminée',
-    'annulee'                 => 'Annulée',
+    1 => 'En attente',
+    2 => 'Acceptée',
+    3 => 'En préparation',
+    4 => 'En cours de livraison',
+    5 => 'Livrée',
+    6 => 'Retour matériel',
+    7 => 'Terminée',
+    8 => 'Annulée',
 ];
  
 $statutColors = [
-    'en_attente'              => 'statut--attente',
-    'accepte'                 => 'statut--accepte',
-    'en_preparation'          => 'statut--prep',
-    'en_cours_de_livraison'   => 'statut--livraison',
-    'livre'                   => 'statut--livre',
-    'en_attente_materiel'     => 'statut--materiel',
-    'terminee'                => 'statut--termine',
-    'annulee'                 => 'statut--annule',
+    1 => 'statut--attente',
+    2 => 'statut--accepte',
+    3 => 'statut--prep',
+    4 => 'statut--livraison',
+    5 => 'statut--livre',
+    6 => 'statut--materiel',
+    7 => 'statut--termine',
+    8 => 'statut--annule',
 ];
  
-// Transitions autorisées par statut
 $statutTransitions = [
-    'en_attente'            => ['accepte', 'annulee'],
-    'accepte'               => ['en_preparation'],
-    'en_preparation'        => ['en_cours_de_livraison'],
-    'en_cours_de_livraison' => ['livre'],
-    'livre'                 => ['en_attente_materiel', 'terminee'],
-    'en_attente_materiel'   => ['terminee'],
+    1 => [2, 8],
+    2 => [3, 8],
+    3 => [4],
+    4 => [5],
+    5 => [6, 7],
+    6 => [7]
 ];
 
-//Traitement POST
-$erreur = "";
-$succes = "";
-
-if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    switch($_POST['action']) {
-        case 'update_statut':
-            $succes = 'Statut de la commande #' .(int)$_POST['commande_id'] . ' mis à jour avec succès.';
-            break;
-        case 'annuler_commande':
-            $succes = 'Commande #' . (int)$_POST['commande_id'] . ' annulée avec succès.';
-            break;
-        case 'valider_avis':
-            $succes = 'Avis #' . (int)$_POST['avis_id'] . ' validé avec succès.';
-            break;
-        case 'refuser_avis':
-            $succes = 'Avis #' . (int)$_POST['avis_id'] . ' refusé avec succès.';
-            break;
-        case 'update_menu':
-            $succes = 'Menu mis à jour avec succès.';
-            break;
-        case 'delete_menu':
-            $succes = 'Menu supprimé avec succès.';
-            break;
-        case 'update_plat':
-            $succes = 'Plat mis à jour avec succès.';
-            break;
-        case 'delete_plat':
-            $succes = 'Plat supprimé avec succès.';
-            break;
-        case 'update_horaires':
-            try {
-                $pdo->beginTransaction();
-
-                //Récupérer les données envoyé par le formulaire
-                foreach ($_POST['debut'] as $jour => $heure_ouv) {
-                    $heure_fer = $_POST['fin'][$jour];
-                    $estOuvert = isset($_POST['ouvert'][$jour]);
-
-                // Si la case n'est pas cochée, on force à 00:00
-                    if ($estOuvert) {
-                        $final_ouv = !empty($heure_ouv) ? $heure_ouv : '09:00:00';
-                        $final_fer = !empty($heure_fer) ? $heure_fer : '18:00:00';
-                    } else {
-                        $final_ouv = '00:00:00';
-                        $final_fer = '00:00:00';                        $heure_fer = '00:00:00';
-                    }
-
-                    $stmt = $pdo->prepare("UPDATE horaire SET heure_ouverture = ?, heure_fermeture = ? WHERE jour = ?");
-                    $stmt->execute([$final_ouv, $final_fer, $jour]);
-                }
-
-                $pdo->commit();
-                $succes = "Les horaires du restaurant ont été mis à jour avec succès.";
-
-                $stmtH = $pdo->query("SELECT * FROM horaire ORDER BY horaire_id ASC");
-                $rows = $stmtH->fetchAll(PDO::FETCH_ASSOC);
-                $horaires = [];
-                foreach($rows as $r){
-                    $horaires[] = [
-                        'horaire_id' => $r['horaire_id'],
-                        'jour' => $r['jour'],
-                        'ouvert' => ($r['heure_ouverture'] !== '00:00:00' && $r['heure_ouverture'] !== null),
-                        'debut' => $r['heure_ouverture'],
-                        'fin' => $r['heure_fermeture']
-                    ];
-                }
-            } catch (Exception $e) {
-                if($pdo->inTransaction()) $pdo->rollBack();
-                $erreur = "Erreur lors de la mise à jour : " . $e->getMessage();
-            }
-            break;
-    }
-}
-
 //Stats rapides
-$nbEnAttente = count(array_filter($commandes, fn($c) => $c['statut'] === 'en_attente'));
-$nbEnCours = count(array_filter($commandes, fn($c) => in_array($c['statut'], ['en_preparation', 'en_cours_de_livraison', 'livre', 'en_attente_materiel'])));
-$nbAvisAttente = count(array_filter($avis, fn($a) => $a['statut'] === 'en_attente'));
-$caTotal = array_sum(array_column(array_filter($commandes, fn($c) => $c['statut'] === 'terminee'), 'prix_total'));
+$nbEnAttente = count(array_filter($commandes, function($c) {
+    return isset($c['statut_id']) && $c['statut_id'] == 1;
+}));
+
+$nbEnCours = count(array_filter($commandes, function($c) {
+    return isset($c['statut_id']) && in_array($c['statut_id'], [2, 3, 4, 5, 6]);
+}));
+
+$nbAvisAttente = count(array_filter($avis, function($a) {
+    return isset($a['statut_avis_id']) && $a['statut_avis_id'] == 1;
+}));
+
+$caTotal = array_sum(array_column(array_filter($commandes, function($c) {
+    return isset($c['statut_id']) && $c['statut_id'] == 7;
+}), 'prix_total'));
 
 ?>
 
@@ -305,7 +337,7 @@ $caTotal = array_sum(array_column(array_filter($commandes, fn($c) => $c['statut'
             <h1 class="compte-header__nom">
                 <?= htmlspecialchars($employe['prenom'] . ' ' . $employe['nom']) ?>
                 <span class="employe-role-badge">
-                    <?= htmlspecialchars($employe['role']) ?>
+                    <?= htmlspecialchars($employe['role_display']) ?>
                 </span>
             </h1>
             <p class="compte-header__email">
@@ -382,260 +414,265 @@ $caTotal = array_sum(array_column(array_filter($commandes, fn($c) => $c['statut'
          <!-- CONTENU ONGLETS -->
           <div class="compte-tabs-content">
 
-          <!-- Onglets Commandes -->
-           <div class="compte-panel active" id="tab-commandes">
-
-           <!-- Filtres -->
-            <div class="employe-filtres">
-                <div class="employe-filtre-group">
-                    <label class="employe-filtre-label">Filtrer par statut</label>
-                    <select id="filtre-statut" class="commande-input-employe-filtre-select" onchange="filtrerCommandes()">
-                        <option value="">Tous les statuts</option>
-                        <?php foreach($statutLabels as $val => $label): ?>
-                            <option value="<?= $val ?>"><?= $label ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="employe-filtre-group">
-                    <label class="employe-filtre-label">Rechercher un client</label>
-                    <div class="auth-input-wrap">
-                        <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <!-- ====== ONGLET COMMANDES (identique admin) ====== -->
+            <div class="compte-panel" id="tab-commandes">
+                <div class="employe-filtres">
+                    <div class="employe-filtre-group">
+                        <label class="employe-filtre-label">Filtrer par statut</label>
+                        <select id="filtre-statut" class="commande-input employe-filtre-select" onchange="filtrerCommandes()">
+                            <option value="">Tous les statuts</option>
+                            <?php foreach ($statutLabels as $val => $label): ?>
+                                <option value="<?= $val ?>"><?= $label ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="employe-filtre-group">
+                        <label class="employe-filtre-label">Rechercher un client</label>
+                        <div class="auth-input-wrap">
+                            <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                             <input type="text" class="auth-input" id="filtre-client" placeholder="Nom, prénom, email..." oninput="filtrerCommandes()">
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Liste commandes -->
-             <div class="commandes-liste" id="liste-commandes">
-                <?php foreach($commandes as $cmd): ?>
-                    <div class="commande-item employe-commande-item" data-statut="<?= $cmd['statut'] ?>" data-client="<?= strtolower($cmd['client_prenom'] . ' ' . $cmd['client_nom'] . ' ' . $cmd['client_email']) ?>" id="employe-cmd-<?= $cmd['commande_id'] ?>">
-                        <div class="commande-item__header">
-                            <div class="commande-item__id">
-                                <span class="commande-item__num">Commande #<?= $cmd['commande_id'] ?></span>
-                                <span class="commande-statut <?= $statutColors[$cmd['statut']] ?? '' ?>">
-                                    <?= $statutLabels[$cmd['statut']] ?? $cmd['statut'] ?>
-                                </span>
-                                <?php if ($cmd['materiel_prete']): ?>
-                                    <span class="commande-statut statut--materiel">Matériel prêté</span>
-                                <?php endif; ?>
+ 
+                <div class="commandes-liste" id="liste-commandes">
+                    <?php foreach ($commandes as $cmd): ?>
+                        <div class="commande-item employe-commande-item"
+                             data-statut="<?= $cmd['statut_id'] ?>"
+                             data-client="<?= strtolower($cmd['client_prenom'] . ' ' . $cmd['client_nom']) ?>"
+                             id="admin-cmd-<?= $cmd['commande_id'] ?>">
+ 
+                            <div class="commande-item__header">
+                                <div class="commande-item__id">
+                                    <span class="commande-item__num">Commande #<?= $cmd['commande_id'] ?></span>
+                                    <span class="commande-statut <?= $statutColors[$cmd['statut_id']] ?? '' ?>">
+                                        <?= $statutLabels[$cmd['statut_id']] ?? $cmd['statut_id'] ?>
+                                    </span>
+                                    <?php if (!empty($cmd['materiel_prete'])): ?>
+                                        <span class="commande-statut statut--materiel">Matériel prêté</span>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="commande-item__prix"><?= number_format($cmd['prix_total'], 2, ',', ' ') ?> €</div>
                             </div>
-                            <div class="commande-item__prix"><?= number_format($cmd['prix_total'], 2, ',', ' ') ?> €</div>
-                        </div>
-
-                        <div class="commande-item__body">
-                            <div class="commande-item__info">
-                                <!-- Info client -->
-                                 <div class="employe-client-bloc">
-                                    <div class="employe-client-avatar">
-                                        <?= strtoupper(substr($cmd['client_prenom'], 0, 1) . substr($cmd['client_nom'], 0, 1)) ?>
-                                    </div>
-                                    <div>
-                                        <div class="employe-client-nom"><?= htmlspecialchars($cmd['client_prenom'] . ' ' . $cmd['client_nom']) ?></div>
-                                        <div class="employe-client-contact">
-                                            <a href="mailto:<?= $cmd['client_email'] ?>">
-                                                <?= $cmd['client_email'] ?>
-                                            </a>
-                                            &nbsp;·&nbsp;
-                                                <a href="tel:<?= $cmd['client_telephone'] ?>"><?= $cmd['client_telephone'] ?></a>
+ 
+                            <div class="commande-item__body">
+                                <div class="commande-item__info">
+                                    <div class="employe-client-bloc">
+                                        <div class="employe-client-avatar">
+                                            <?= strtoupper(substr($cmd['client_prenom'], 0, 1) . substr($cmd['client_nom'], 0, 1)) ?>
+                                        </div>
+                                        <div>
+                                            <div class="employe-client-nom"><?= htmlspecialchars($cmd['client_prenom'] . ' ' . $cmd['client_nom']) ?></div>
+                                            <div class="employe-client-contact">
+                                                <a href="mailto:<?= htmlspecialchars($cmd['client_email'] ?? '') ?>">
+                                                    <?= htmlspecialchars($cmd['client_email'] ?? 'Non renseigné') ?>
+                                                </a>
+                                                &nbsp;·&nbsp;
+                                                <a href="tel:<?= htmlspecialchars($cmd['client_telephone'] ?? '') ?>">
+                                                    <?= htmlspecialchars($cmd['client_telephone'] ?? 'Non renseigné') ?>
+                                                </a>
+                                            </div>
                                         </div>
                                     </div>
-                                 </div>
-                                 
-                                 <div class="commande-info-row">
-                                    <span class="commande-info-label">Menu</span>
-                                    <span class="commande-info-val"><?= htmlspecialchars($cmd['menu_titre']) ?></span>
-                                 </div>
-                                 <div class="commande-info-row">
-                                    <span class="commande-info-label">Personnes</span>
-                                    <span class="commande-info-val"><?= $cmd['nb_personnes'] ?> pers.</span>
-                                 </div>
-                                 <div class="commande-info-row">
-                                    <span class="commande-info-label">Date</span>
-                                    <span class="commande-info-val"><?= date('d/m/Y', strtotime($cmd['date_prestation'])) ?> à <?= $cmd['heure_prestation'] ?></span>
-                                 </div>
-                                 <div class="commande-info-row">
-                                    <span class="commande-info-label">Adresse</span>
-                                    <span class="commande-info-val"><?= htmlspecialchars($cmd['adresse_prestation']) ?></span>
-                                 </div>
-                            </div>
-
-                            <!-- Timeline suivi -->
-                             <div class="commande-suivi">
-                                <h4 class="commande-de-suivi__titre">Historique</h4>
-                                <ul class="suivi-timeline">
-                                    <?php foreach($cmd['historique'] as $etape): ?>
-                                        <li class="suivi-etape suivi-etape--done">
-                                            <div class="suivi-etape__dot"></div>
-                                            <div class="suivi-etape__content">
-                                                <span class="suivi-etape__label"><?= $statutLabels[$etape['statut']] ?? $etape['statut'] ?></span>
-                                                <span class="suivi-etape__date"><?= date('d/m/Y H:i', strtotime($etape['date'])) ?> - <?= $etape['auteur'] ?></span>
-                                            </div>
-                                        </li>
-                                    <?php endforeach; ?>
-                                </ul>
-
-                             </div>
-                        </div>
-
-                        <!-- Actions employé -->
-                         <div class="commande-item__actions employe-commande-actions">
-
-                         <!-- Mise à jour du statut -->
-                          <?php if(isset($statutTransitions[$cmd['statut']])): ?>
-                            <form method="POST" action="" style="display:inline-flex; gap:8px; align-items:center;">
-                                <input type="hidden" name="action" value="update_statut">
-                                <input type="hidden" name="commande_id" value="<?= $cmd['commande_id'] ?>">
-                                <select name="nouveau_statut" class="commande-input employe-statut-select">
-                                    <?php foreach($statutTransitions[$cmd['statut']] as $s): ?>
-                                        <option value="<?= $s ?>"><?= $statutLabels[$s] ?></option>
+                                    <div class="commande-info-row">
+                                        <span class="commande-info-label">Menu</span>
+                                        <span class="commande-info-val"><?= htmlspecialchars($cmd['menu_titre']) ?></span>
+                                    </div>
+                                    <div class="commande-info-row">
+                                        <span class="commande-info-label">Personnes</span>
+                                        <span class="commande-info-val"><?= $cmd['nombre_personnes'] ?? '0' ?> pers.</span>
+                                    </div>
+                                    <div class="commande-info-row">
+                                        <span class="commande-info-label">Date</span>
+                                        <span class="commande-info-val"><?= date('d/m/Y', strtotime($cmd['date_prestation'])) ?> à <?= $cmd['heure_livraison'] ?></span>
+                                    </div>
+                                </div>
+ 
+                                <div class="commande-suivi">
+                                    <h4 class="commande-suivi__titre">Historique</h4>
+                                    <ul class="suivi-timeline">
+                                        <?php
+                                        $stmtH = $pdo->prepare("SELECT * FROM commande_statut WHERE commande_id = ? ORDER BY date_modification ASC");
+                                        $stmtH->execute([$cmd['commande_id']]);
+                                        $historique = $stmtH->fetchAll();
+                                        
+                                        foreach ($historique as $etape): ?>
+                                            <li class="suivi-etape done">
+                                                <div class="suivi-etape__dot"></div>
+                                                <div class="suivi-etape__content">
+                                                    <span class="suivi-etape__label"><?= $statutLabels[$etape['statut_id']]?></span>
+                                                    <span class="suivi-etape__date">
+                                                        le <?= date('d/m à H:i', strtotime($etape['date_modification'])) ?>
+                                                    </span>
+                                                </div>
+                                            </li>
                                         <?php endforeach; ?>
-                                </select>
-                                <button type="submit" class="btn-compte-action btn-compte-action--modifier">
-                                    Mettre à jour →
-                                </button>
-                                </form>
-                                <?php endif; ?>
-                                <!-- Annulation de commande -->
-                                <?php if(!in_array($cmd['statut'], ['terminee', 'annulee'])): ?>
-                                <button type="button" onclick="ouvrirAnnulationEmploye(<?= $cmd['commande_id'] ?>)" class="btn-compte-action btn-compte-action--annuler">
-                                    Annuler commande
-                                </button>
-                                <?php endif; ?>
-                         </div>
-
-                         <!-- Formulaire annulation  avec modif -->
-                          <div class="commande-modif-form employe-annulation-form" id="annulation-<?= $cmd['commande_id'] ?>" style="display:none;">
-                            <form method="POST" action="" class="modif-form">
-                                <input type="hidden" name="action" value="annuler_commande">
-                                <input type="hidden" name="commande_id" value="<?= $cmd['commande_id'] ?>">
-                                <h4 class="modif-form__titre">
-                                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                                    Annuler la commande — contact client obligatoire
-                                </h4>
-                                <div class="employe-annulation-notice">
-                                    Avant toute annulation, vous devez avoir contacté le client via appel ou e-mail.
+                                    </ul>
                                 </div>
-                                <div class="commande-field-row">
-                                    <div class="commande-field">
-                                        <label class="commande-label">Mode de contact *</label>
-                                        <select name="mode_contact" class="commande-input" required>
-                                            <option value="">- Sélectionner -</option>
-                                            <option value="appel_gsm">Appel Téléphonique</option>
-                                            <option value="email">E-mail</option>
+                            </div>
+ 
+                            <div class="commande-item__actions employe-commande-actions">
+                                <?php if (isset($statutTransitions[$cmd['statut_id']])): ?>
+                                    <form method="POST" action="" style="display:inline-flex; gap:8px; align-items:center;">
+                                        <input type="hidden" name="action" value="update_statut">
+                                        <input type="hidden" name="commande_id" value="<?= $cmd['commande_id'] ?>">
+                                        <select name="nouveau_statut" class="commande-input employe-statut-select">
+                                            <?php foreach ($statutTransitions[$cmd['statut_id']] as $s): ?>
+                                                <option value="<?= $s ?>"><?= $statutLabels[$s] ?></option>
+                                            <?php endforeach; ?>
                                         </select>
+                                        <button type="submit" class="btn-compte-action btn-compte-action--modifier">
+                                            Mettre à jour →
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+ 
+                                <?php if (!in_array($cmd['statut_id'], [7, 8])): ?>
+                                    <button type="button"
+                                            class="btn-compte-action btn-compte-action--annuler"
+                                            onclick="ouvrirAnnulation(<?= $cmd['commande_id'] ?>)">
+                                        ✕ Annuler
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+ 
+                            <div class="commande-modif-form employe-annulation-form"
+                                 id="annulation-<?= $cmd['commande_id'] ?>" style="display:none;">
+                                <form method="POST" action="" class="modif-form">
+                                    <input type="hidden" name="action" value="annuler_commande">
+                                    <input type="hidden" name="commande_id" value="<?= $cmd['commande_id'] ?>">
+                                    <h4 class="modif-form__titre">
+                                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                        Annuler — contact client obligatoire
+                                    </h4>
+                                    <div class="employe-annulation-notice">
+                                        Vous devez avoir contacté le client avant toute annulation.
+                                    </div>
+                                    <div class="commande-field-row">
+                                        <div class="commande-field">
+                                            <label class="commande-label">Mode de contact *</label>
+                                            <select name="mode_contact" class="commande-input" required>
+                                                <option value="">— Sélectionner —</option>
+                                                <option value="appel_gsm">Appel GSM</option>
+                                                <option value="email">E-mail</option>
+                                            </select>
+                                        </div>
+                                        <div class="commande-field">
+                                            <label class="commande-label">Date du contact *</label>
+                                            <input type="datetime-local" name="date_contact" class="commande-input" required>
+                                        </div>
                                     </div>
                                     <div class="commande-field">
-                                        <label class="commande-label">Date du contact *</label>
-                                        <input type="datetime-local" name="date-contact" class="commande-input" required>
+                                        <label class="commande-label">Motif *</label>
+                                        <textarea name="motif_annulation" class="commande-input avis-textarea"
+                                                  placeholder="Motif d'annulation..." rows="3" required></textarea>
                                     </div>
-                                </div>
-                                <div class="commande-field">
-                                    <label class="commande-label">Motif d'annulation *</label>
-                                    <textarea name="motif_annulation" class="commande-input avis-textarea" placeholder="Décrivez le motif d'annulation..." rows="3" required></textarea>
-                                </div>
-                                <div class="modif-form__actions">
-                                    <button type="submit" class="btn btn-vg-primary">Confirmer l'annulation</button>
-                                    <button type="button" class="btn btn-vg-secondary" onclick="fermerAnnulationEmploye(<?= $cmd['commande_id'] ?>)">
-                                        Retour
-                                    </button>
-                                </div>
-                            </form>
-                          </div>
-             </div>
-             <?php endforeach; ?>
-           </div>
-
-        <div class="compte-empty" id="no-results" style="display:none;">
-            <h3>Aucune commande trouvée</h3>
-            <p>Modifiez vos filtres pour voir d'autres commandes.</p>
-        </div>
-
-    </div>
+                                    <div class="modif-form__actions">
+                                        <button type="submit" class="btn btn-vg-primary">Confirmer</button>
+                                        <button type="button" class="btn btn-vg-secondary"
+                                                onclick="fermerAnnulation(<?= $cmd['commande_id'] ?>)">Retour</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+ 
+                <div class="compte-empty" id="no-results" style="display:none;">
+                    <h3>Aucune commande trouvée</h3>
+                    <p>Modifiez vos filtres pour voir d'autres commandes.</p>
+                </div>
+            </div>
 
     <!-- ONGLET AVIS CLIENTS -->
 
-    <div class="compte-panel" id="tab-avis-employe">
-        <?php
-            $avisEnAttente = array_filter($avis, fn($a) => $a['statut'] === 'en_attente');
-            $avisTraites = array_filter($avis, fn($a) => $a['statut'] !== 'en_attente');
-        ?>
+<div class="compte-panel" id="tab-avis-employe">
+    <?php
+        // On sépare pour l'affichage des titres, mais on garde le même style
+        $avisEnAttente = array_filter($avis, fn($a) => (int)$a['statut_avis_id'] === 1);
+        $avisTraites = array_filter($avis, fn($a) => in_array((int)$a['statut_avis_id'], [2, 3]));
+    ?>
 
+    <!-- SECTION : À VALIDER -->
+    <h3 class="employe-section-titre">À valider (<?= count($avisEnAttente) ?>)</h3>
+    <div class="commandes-liste">
         <?php if (!empty($avisEnAttente)): ?>
-            <h3 class="employe-section-titre">À valider (<?= count($avisEnAttente) ?>)</h3>
-            <div class="commandes-liste">
-                <?php foreach($avisEnAttente as $a): ?>
-                    <div class="commande-item">
-                        <div class="commande-item__header">
-                            <div class="commande-item__id">
-                                <span class="commande-item__num"><?= htmlspecialchars($a['client']) ?></span>
-                                <span class="commande-statut statut--attente">En attente</span>
-                            </div>
-                            <span class="commande-info-label"><?= date('d/m/Y', strtotime($a['date'])) ?></span>
+            <?php foreach ($avisEnAttente as $a): ?>
+                <div class="commande-item"> <!-- Même classe pour tout le monde -->
+                    <div class="commande-item__header">
+                        <div class="commande-item__id">
+                            <span class="commande-item__num"><?= htmlspecialchars($a['client']) ?></span>
+                            <span class="commande-statut statut--attente">En attente</span>
                         </div>
-                        <div class="avis-employe-body">
-                            <div class="avis-employe-menu"><?= htmlspecialchars($a['menu_titre']) ?></div>
-                            <div class="avis-donne__stars">
-                                <?php for ($i = 1; $i <= 5; $i++): ?>
-                                    <span class="<?= $i <= $a['note'] ? 'star--on' : 'star--off' ?>">★</span>
-                                    <?php endfor; ?>
-                            </div>
-                            <p class="avis-donne__texte">"<?= htmlspecialchars($a['commentaire']) ?>"</p>
-                        </div>
-                        <div class="commande-item__actions">
-                            <form method="POST" action="" style="display:inline;">
-                                <input type="hidden" name="action" value="valider_avis">
-                                <input type="hidden" name="avis_id" value="<?= $a['avis_id'] ?>">
-                                <button type="submit" class="btn-compte-action btn-compte-action--modifier"> ✓ Publier</button>
-                            </form>
-                            <form method="POST" action="" style="display:inline;">
-                                <input type="hidden" name="action" value="refuser_avis">
-                                <input type="hidden" name="avis_id" value="<?= $a['avis_id'] ?>">
-                                <button type="submit" class="btn-compte-action btn-compte-action--annuler">
-                                    ✕ Refuser
-                                </button>
-                            </form>
-                        </div>
+                        <span class="commande-info-label"><?= date('d/m/Y', strtotime($a['date'])) ?></span>
                     </div>
-                    <?php endforeach; ?>
-            </div>
-            <?php else: ?>
-            <div class="compte-empty">
-                <h3>Aucun avis en attente</h3>
-                <p>Tous les avis clients ont été traités.</p>
-            </div>
-            <?php endif; ?>
-
-            <?php if (!empty($avisTraites)): ?>
-                <h3 class="empoye-section-titre">Déjà traités</h3>
-                <div class="commandes-liste">
-                    <?php foreach($avisTraites as $a): ?>
-                        <div class="commande-item commande-item--archive">
-                            <div class="commande-item__header">
-                                <div class="commande-item__id">
-                                    <span class="commande-item__num"><?= htmlspecialchars($a['client']) ?></span>
-                                    <?php if ($a['statut'] === 'valide'): ?>
-                                        <span class="commande-statut statut--termine">Publié</span>
-                                    <?php else: ?>
-                                        <span class="commande-statut statut--annule">Refusé</span>
-                                    <?php endif; ?>
-                                </div>
-                                <span class="commande-info-label"><?= date('d/m/Y', strtotime($a['date'])) ?></span>
-                            </div>
-                            <div class="avis-employe-body">
-                                <div class="avis-donne__stars">
-                                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                                        <span class="<?= $i <= $a['note'] ? 'star--on' : 'star--off' ?>">★</span>
-                                    <?php endfor; ?>
-                                </div>
-                                <p class="avis-donnee__texte">"<?= htmlspecialchars($a['commentaire']) ?>"</p>
-                            </div>
+                    <div class="avis-employe-body">
+                        <div class="avis-employe-menu"><?= htmlspecialchars($a['menu_titre']) ?></div>
+                        <div class="avis-donne__stars">
+                            <?php for ($i = 1; $i <= 5; $i++): ?>
+                                <span class="<?= $i <= $a['note'] ? 'star--on' : 'star--off' ?>">★</span>
+                            <?php endfor; ?>
                         </div>
+                        <p class="avis-donne__texte">"<?= htmlspecialchars($a['commentaire']) ?>"</p>
+                    </div>
+                    <div class="commande-item__actions">
+                        <form method="POST" action="" style="display:inline;">
+                            <input type="hidden" name="action" value="valider_avis">
+                            <input type="hidden" name="avis_id" value="<?= $a['avis_id'] ?>">
+                            <button type="submit" class="btn-compte-action btn-compte-action--modifier">✓ Publier</button>
+                        </form>
+                        <form method="POST" action="" style="display:inline;">
+                            <input type="hidden" name="action" value="refuser_avis">
+                            <input type="hidden" name="avis_id" value="<?= $a['avis_id'] ?>">
+                            <button type="submit" class="btn-compte-action btn-compte-action--annuler">✕ Refuser</button>
+                        </form>
+                    </div>
+                </div>
             <?php endforeach; ?>
-        
-        </div>
-    <?php endif; ?>
-</div>
+        <?php else: ?>
+            <div class="compte-empty"><p>Aucun avis en attente.</p></div>
+        <?php endif; ?>
+    </div>
 
+    <div style="margin: 40px 0;"></div> <!-- Espace entre les deux sections -->
+
+    <!-- SECTION : HISTORIQUE (Même Style) -->
+    <h3 class="employe-section-titre">Historique des avis traités</h3>
+    <div class="commandes-liste">
+        <?php if (!empty($avisTraites)): ?>
+            <?php foreach ($avisTraites as $a): ?>
+                <div class="commande-item"> <!-- EXACTEMENT LA MÊME CLASSE ICI -->
+                    <div class="commande-item__header">
+                        <div class="commande-item__id">
+                            <span class="commande-item__num"><?= htmlspecialchars($a['client']) ?></span>
+                            <?php if ((int)$a['statut_avis_id'] === 2): ?>
+                                <span class="commande-statut statut--termine">Publié</span>
+                            <?php else: ?>
+                                <span class="commande-statut statut--annule">Refusé</span>
+                            <?php endif; ?>
+                        </div>
+                        <span class="commande-info-label"><?= date('d/m/Y', strtotime($a['date'])) ?></span>
+                    </div>
+                    <div class="avis-employe-body">
+                        <div class="avis-employe-menu"><?= htmlspecialchars($a['menu_titre']) ?></div>
+                        <div class="avis-donne__stars">
+                            <?php for ($i = 1; $i <= 5; $i++): ?>
+                                <span class="<?= $i <= $a['note'] ? 'star--on' : 'star--off' ?>">★</span>
+                            <?php endfor; ?>
+                        </div>
+                        <p class="avis-donne__texte">"<?= htmlspecialchars($a['commentaire']) ?>"</p>
+                    </div>
+                    <!-- On laisse le bloc actions vide ou on met un petit message pour garder la hauteur du bloc -->
+                    <div class="commande-item__actions">
+                        <span class="commande-info-label" style="font-style: italic;">Traité le <?= date('d/m à H:i', strtotime($a['date'])) ?></span>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <div class="compte-empty"><p>Aucun avis dans l'historique.</p></div>
+        <?php endif; ?>
+    </div>
+</div>
 <!-- Onglet Menus & Plats -->
 
 <div class="compte-panel" id="tab-menus">
@@ -898,24 +935,48 @@ $caTotal = array_sum(array_column(array_filter($commandes, fn($c) => $c['statut'
 </section>
  
 <script>
-// Onglets principaux
-document.querySelectorAll('.compte-tab').forEach(tab => {
-    tab.addEventListener('click', function () {
-        document.querySelectorAll('.compte-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.compte-panel').forEach(p => p.classList.remove('active'));
-        this.classList.add('active');
-        document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    // --- 1. Gestion des onglets principaux ---
+    const tabs = document.querySelectorAll('.compte-tab');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function () {
+            // Désactive tout
+            tabs.forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.compte-panel').forEach(p => p.classList.remove('active'));
+            
+            // Active l'onglet cliqué et son panneau
+            this.classList.add('active');
+            const targetPanel = document.getElementById('tab-' + this.dataset.tab);
+            if (targetPanel) targetPanel.classList.add('active');
+        });
     });
-});
- 
-// Sous-onglets menus/plats
-document.querySelectorAll('.employe-sous-tab').forEach(tab => {
-    tab.addEventListener('click', function () {
-        document.querySelectorAll('.employe-sous-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.employe-sous-panel').forEach(p => p.classList.remove('active'));
-        this.classList.add('active');
-        document.getElementById(this.dataset.sous).classList.add('active');
+
+    // --- 2. Gestion des sous-onglets (Menus/Plats) ---
+    const sousTabs = document.querySelectorAll('.employe-sous-tab');
+    
+    sousTabs.forEach(tab => {
+        tab.addEventListener('click', function () {
+            sousTabs.forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.employe-sous-panel').forEach(p => p.classList.remove('active'));
+            
+            this.classList.add('active');
+            const targetSousPanel = document.getElementById(this.dataset.sous);
+            if (targetSousPanel) targetSousPanel.classList.add('active');
+        });
     });
+
+    // --- 3. ACTIVATION PAR DÉFAUT AU CHARGEMENT ---
+    // On cherche l'onglet qui a la classe "active" dans le HTML (ton onglet Commandes)
+    const activeTab = document.querySelector('.compte-tab.active');
+    if (activeTab) {
+        const panelId = 'tab-' + activeTab.dataset.tab;
+        const panel = document.getElementById(panelId);
+        if (panel) panel.classList.add('active');
+    }
+
 });
  
 // Toggle formulaires
@@ -925,11 +986,18 @@ function toggleForm(id) {
 }
  
 // Annulation employé
-function ouvrirAnnulationEmploye(id) {
-    document.getElementById('annulation-' + id).style.display = 'block';
+function ouvrirAnnulation (id) {
+    const form = document.getElementById('annulation-' + id);
+    if(form) {
+        form.style.display = 'block';
+    }
 }
-function fermerAnnulationEmploye(id) {
-    document.getElementById('annulation-' + id).style.display = 'none';
+
+function fermerAnnulation (id) {
+    const form = document.getElementById('annulation-' + id);
+    if(form) {
+        form.style.display = 'none';
+    }
 }
  
 // Filtres commandes
@@ -963,6 +1031,15 @@ function toggleHoraire(checkbox, jour) {
         container.style.pointerEvents = "none";
         label.textContent = "Fermé";
     }
+}
+
+const alerteSucces = document.querySelector('.auth-alert--success');
+if(alerteSucces){
+    setTimeout(() => {
+        alerteSucces.style.transition = "opacity 0.5s ease";
+        alerteSucces.style.opacity = "0";
+        setTimeout(() => alerteSucces.remove(), 500);
+    }, 3000);
 }
 </script>
  

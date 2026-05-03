@@ -77,9 +77,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     $datePresta = trim($_POST['date_prestation'] ?? '');
     $heurePresta = trim($_POST['heure_prestation'] ?? '');
     $adressePresta = trim($_POST['adresse_prestation'] ?? '');
+    $villePresta = trim($_POST['ville_prestation'] ?? '');
     $pretMateriel = isset($_POST['pret_materiel']) ? 1 : 0;
 
-    if(!$menuId || $nbPersonnes <= 0 ||empty($datePresta) ||empty($heurePresta) || empty($adressePresta)) {
+    if(!$menuId || $nbPersonnes <= 0 ||empty($datePresta) ||empty($heurePresta) || empty($adressePresta) ||empty($villePresta)) {
         $erreur = 'Veuillez remplir tous les champs obligatoires.';
     } else {
         try {
@@ -136,7 +137,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             $datePresta,
             $heurePresta,
             $adressePresta,
-            $user['ville'],
+            $villePresta,
             $pretMateriel,
             $nbPersonnes,
             $totalFinal,
@@ -269,7 +270,7 @@ $menusJson = json_encode($menus);
                     <label for="nb-personnes" class="commande-label">Nombre de personnes <span class="auth-required">*</span></label>
                     <div class="commande-nb-wrap">
                         <button type="button" class="commande-nb-btn" id="nb-moins">-</button>
-                        <input type="number" id="nb_personnes" name="nb_personnes" class="commande-input commande-nb-input" value="1" min="1" required>
+                        <input type="number" id="nb_personnes" name="nb_personnes" class="commande-input commande-nb-input" value="1" min="1" inputmode="numeric" required>
                         <button type="button" class="commande-nb-btn" id="nb-plus">+</button>
                     </div>
                     <span class="commande-nb-hint"></span>
@@ -294,14 +295,20 @@ $menusJson = json_encode($menus);
                                 <input type="time" id="heure_prestation" name="heure_prestation" class="commande-input" required>
                             </div>
                         </div>
-                        <div class="commande-field">
-                            <label for="adresse_prestation" class="commande-label">Adresse de livraison <span class="auth-required">*</span></label>
-                            <div class="auth-input-wrap">
-                                <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                                <input type="text" id="adresse_prestation" name="adresse_prestation" class="commande-input" placeholder="12 rue des Lilas, 75001 Paris" value="<?= htmlspecialchars($_POST['adresse_prestation'] ?? '') ?>" required>
+                        <div class="commande-field-row">
+                            <div class="commande-field">
+                                <label for="adresse_prestation" class="commande-label">Adresse de livraison <span class="auth-required">*</span></label>
+                                <div class="auth-input-wrap">
+                                    <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                                    <input type="text" id="adresse_prestation" name="adresse_prestation" class="commande-input" placeholder="12 rue des Lilas" value="<?= htmlspecialchars($_POST['adresse_prestation'] ?? '') ?>" required>
+                                </div>
                             </div>
-                            <span class="commande-livraison-info" id="livraison-info"></span>
+                            <div class="commande-field">
+                                <label for="ville_prestation" class="commande-label">Ville <span class="auth-required">*</span></label>
+                                <input type="text" id="ville_prestation" name="ville_prestation" class="commande-input" placeholder="Paris" value="<?= htmlspecialchars($_POST['ville_prestation'] ?? $user['ville']) ?>" required>
+                            </div>
                         </div>
+                        <span class="commande-livraison-info" id="livraison-info"></span>
 
                         <div class="commande-option-item mt-3 mb-3">
                             <div class="d-flex align-items-center">
@@ -329,7 +336,7 @@ $menusJson = json_encode($menus);
                         <span class="commande-recap__label">Récapitulatif</span>
                     </div>
                     <div class="commande-recap__body" id="recap-body">
-                        <div class="reca-ligne">
+                        <div class="recap-ligne">
                             <span class="recap-ligne__lib">Menu sélectionné</span>
                             <span class="recap-ligne__val" id="recap-menu">-</span>
                         </div>
@@ -364,7 +371,7 @@ $menusJson = json_encode($menus);
                         <button type="submit" class="auth-btn" id="btn-commander">Confirmer la commande
                             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
                         </button>
-                        <p class="recap-mention">En confirmant, vous acceptez nos <a href="<?= $rootPath ?>pages/cvg.php" class="auth-link" target="_blank">CGV</a>.</p>
+                        <p class="recap-mention">En confirmant, vous acceptez nos <a href="<?= $rootPath ?>pages/cgv.php" class="auth-link" target="_blank">CGV</a>.</p>
                     </div>
                 </div>
              </aside>
@@ -394,6 +401,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if(!menuSelect || !nbInput) return;
 
+    const dateInput = document.getElementById('date_prestation');
+    if(dateInput) dateInput.min = new Date().toISOString().split('T')[0];
+
     // 2. La fonction de calcul globale
     function updateAll() {
         const selectedOption = menuSelect.options[menuSelect.selectedIndex];
@@ -414,26 +424,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // --- CALCULS ---
             const sousTotal = prixUnit * nb;
-            
             // Remise de 10% si le total menu dépasse 300€
             const remise = (sousTotal > 300) ? (sousTotal * 0.10) : 0;
-            
             // Livraison gratuite si le total menu dépasse 200€
             const seuilGratuite = 200;
             const fraisLivraison = (sousTotal >= seuilGratuite) ? 0 : 15.00;
-            
             const totalFinal = sousTotal - remise + fraisLivraison;
+            const formatFR = (num) => num.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " €";
 
             // --- MISE À JOUR VISUELLE (SIDEBAR) ---
             if (recapMenu) recapMenu.textContent = selectedOption.text.split('-')[0].trim();
             if (recapNb) recapNb.textContent = nb + " pers.";
-            if (recapPrix) recapPrix.textContent = sousTotal.toFixed(2) + " €";
+            if (recapPrix) recapPrix.textContent = formatFR(sousTotal);
             
             // Affichage/Masquage de la ligne remise
             if (recapRemiseLigne) {
                 if (remise > 0) {
                     recapRemiseLigne.style.display = 'flex';
-                    recapRemiseVal.textContent = "-" + remise.toFixed(2) + " €";
+                    recapRemiseVal.textContent = "-" + formatFR(remise);
                 } else {
                     recapRemiseLigne.style.display = 'none';
                 }
@@ -441,11 +449,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Affichage livraison
             if (recapLivraison) {
-                recapLivraison.textContent = (fraisLivraison === 0) ? "Gratuit" : "15,00 €";
+                recapLivraison.textContent = (fraisLivraison === 0) ? "Gratuit" : formatFR(fraisLivraison);
             }
 
             // Total final
-            if (recapTotal) recapTotal.textContent = totalFinal.toFixed(2) + " €";
+            if (recapTotal) recapTotal.textContent = formatFR(totalFinal);
             
             // Petit message d'info livraison sous l'adresse
             const infoLivraison = document.getElementById('livraison-info');

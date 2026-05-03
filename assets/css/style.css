@@ -1903,6 +1903,13 @@ textarea:focus-visible {
     margin-top: 0.5rem;
 }
 
+#btn-commander:disabled {
+    background: var(--vert-clair);
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .auth-btn:hover {
     background: var(--or);
     border-color: var(--or);
@@ -2206,6 +2213,12 @@ textarea:focus-visible {
     font-weight: 500;
 }
 
+.commande-nb-input::-webkit-outer-spin-button,
+.commande-nb-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 .commande-nb-input:focus {
     box-shadow: none;
     border-color: var(--creme-fonce);
@@ -2240,19 +2253,17 @@ textarea:focus-visible {
 .commande-livraison-info {
     font-size: 12.5px;
     margin-top: 4px;
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
 }
 
-.commande-livraison-info--ok {
-    color: #2c6a1f;
-}
-
-.commande-livraison-info--error {
-    color: #b42828;
-}
-
-.commande-livraison-info--warn {
-    color: #7A5A10;
+#livraison-info b {
+    color: #1b4332;
+    background: rgba(45, 106, 31, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
 }
 
 .commande-sidebar {
@@ -2414,8 +2425,14 @@ textarea:focus-visible {
     }
     
     .commande-sidebar {
-        position: static;
+        margin-top: 1rem;
+        order: 2;
     }
+    
+    .commande-main {
+        order: 1;
+    }
+
 }
 
 @media (max-width: 576px) {

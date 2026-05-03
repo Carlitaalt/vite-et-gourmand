@@ -1,8 +1,5 @@
 <?php
 ob_start();
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-ini_set('display_startup_errors', 1);
 session_start();
 
 require_once '../includes/db.php';
@@ -1023,55 +1020,96 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                 </div>
             </div>
  
-            <!-- ====== ONGLET AVIS ====== -->
-            <div class="compte-panel" id="tab-avis-employe">
-                <?php
-                $avisEnAttente = array_filter($avis, fn($a) => (int)$a['statut_avis_id'] === 1);
-                ?>
-                <?php if (!empty($avisEnAttente)): ?>
-                    <h3 class="employe-section-titre">À valider (<?= count($avisEnAttente) ?>)</h3>
-                    <div class="commandes-liste">
-                        <?php foreach ($avisEnAttente as $a): ?>
-                            <div class="commande-item">
-                                <div class="commande-item__header">
-                                    <div class="commande-item__id">
-                                        <span class="commande-item__num"><?= htmlspecialchars($a['client']) ?></span>
-                                        <span class="commande-statut statut--attente">En attente</span>
-                                    </div>
-                                    <span class="commande-info-label"><?= date('d/m/Y', strtotime($a['date'])) ?></span>
-                                </div>
-                                <div class="avis-employe-body">
-                                    <div class="avis-employe-menu"><?= htmlspecialchars($a['menu_titre']) ?></div>
-                                    <div class="avis-donne__stars">
-                                        <?php for ($i = 1; $i <= 5; $i++): ?>
-                                            <span class="<?= $i <= $a['note'] ? 'star--on' : 'star--off' ?>">★</span>
-                                        <?php endfor; ?>
-                                    </div>
-                                    <p class="avis-donne__texte">"<?= htmlspecialchars($a['commentaire']) ?>"</p>
-                                </div>
-                                <div class="commande-item__actions">
-                                    <form method="POST" action="" style="display:inline;">
-                                        <input type="hidden" name="action" value="valider_avis">
-                                        <input type="hidden" name="avis_id" value="<?= $a['avis_id'] ?>">
-                                        <button type="submit" class="btn-compte-action btn-compte-action--modifier">✓ Publier</button>
-                                    </form>
-                                    <form method="POST" action="" style="display:inline;">
-                                        <input type="hidden" name="action" value="refuser_avis">
-                                        <input type="hidden" name="avis_id" value="<?= $a['avis_id'] ?>">
-                                        <button type="submit" class="btn-compte-action btn-compte-action--annuler">✕ Refuser</button>
-                                    </form>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
+<!-- ONGLET AVIS CLIENTS -->
+<div class="compte-panel" id="tab-avis-employe">
+    <?php
+        // On sépare pour l'affichage des titres, mais on garde le même style
+        $avisEnAttente = array_filter($avis, fn($a) => (int)$a['statut_avis_id'] === 1);
+        $avisTraites = array_filter($avis, fn($a) => in_array((int)$a['statut_avis_id'], [2, 3]));
+    ?>
+
+    <!-- SECTION : À VALIDER -->
+    <h3 class="employe-section-titre">À valider (<?= count($avisEnAttente) ?>)</h3>
+    <div class="commandes-liste">
+        <?php if (!empty($avisEnAttente)): ?>
+            <?php foreach ($avisEnAttente as $a): ?>
+                <div class="commande-item"> <!-- Même classe pour tout le monde -->
+                    <div class="commande-item__header">
+                        <div class="commande-item__id">
+                            <span class="commande-item__num"><?= htmlspecialchars($a['client']) ?></span>
+                            <span class="commande-statut statut--attente">En attente</span>
+                        </div>
+                        <span class="commande-info-label"><?= date('d/m/Y', strtotime($a['date'])) ?></span>
                     </div>
-                <?php else: ?>
-                    <div class="compte-empty">
-                        <h3>Aucun avis en attente</h3>
-                        <p>Tous les avis ont été traités.</p>
+                    <div class="avis-employe-body">
+                        <div class="avis-employe-menu"><?= htmlspecialchars($a['menu_titre']) ?></div>
+                        <div class="avis-donne__stars">
+                            <?php for ($i = 1; $i <= 5; $i++): ?>
+                                <span class="<?= $i <= $a['note'] ? 'star--on' : 'star--off' ?>">★</span>
+                            <?php endfor; ?>
+                        </div>
+                        <p class="avis-donne__texte">"<?= htmlspecialchars($a['commentaire']) ?>"</p>
                     </div>
-                <?php endif; ?>
-            </div>
- 
+                    <div class="commande-item__actions">
+                        <form method="POST" action="" style="display:inline;">
+                            <input type="hidden" name="action" value="valider_avis">
+                            <input type="hidden" name="avis_id" value="<?= $a['avis_id'] ?>">
+                            <button type="submit" class="btn-compte-action btn-compte-action--modifier">✓ Publier</button>
+                        </form>
+                        <form method="POST" action="" style="display:inline;">
+                            <input type="hidden" name="action" value="refuser_avis">
+                            <input type="hidden" name="avis_id" value="<?= $a['avis_id'] ?>">
+                            <button type="submit" class="btn-compte-action btn-compte-action--annuler">✕ Refuser</button>
+                        </form>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <div class="compte-empty"><p>Aucun avis en attente.</p></div>
+        <?php endif; ?>
+    </div>
+
+    <div style="margin: 40px 0;"></div> <!-- Espace entre les deux sections -->
+
+    <!-- SECTION : HISTORIQUE (Même Style) -->
+    <h3 class="employe-section-titre">Historique des avis traités</h3>
+    <div class="commandes-liste">
+        <?php if (!empty($avisTraites)): ?>
+            <?php foreach ($avisTraites as $a): ?>
+                <div class="commande-item"> <!-- EXACTEMENT LA MÊME CLASSE ICI -->
+                    <div class="commande-item__header">
+                        <div class="commande-item__id">
+                            <span class="commande-item__num"><?= htmlspecialchars($a['client']) ?></span>
+                            <?php if ((int)$a['statut_avis_id'] === 2): ?>
+                                <span class="commande-statut statut--termine">Publié</span>
+                            <?php else: ?>
+                                <span class="commande-statut statut--annule">Refusé</span>
+                            <?php endif; ?>
+                        </div>
+                        <span class="commande-info-label"><?= date('d/m/Y', strtotime($a['date'])) ?></span>
+                    </div>
+                    <div class="avis-employe-body">
+                        <div class="avis-employe-menu"><?= htmlspecialchars($a['menu_titre']) ?></div>
+                        <div class="avis-donne__stars">
+                            <?php for ($i = 1; $i <= 5; $i++): ?>
+                                <span class="<?= $i <= $a['note'] ? 'star--on' : 'star--off' ?>">★</span>
+                            <?php endfor; ?>
+                        </div>
+                        <p class="avis-donne__texte">"<?= htmlspecialchars($a['commentaire']) ?>"</p>
+                    </div>
+                    <!-- On laisse le bloc actions vide ou on met un petit message pour garder la hauteur du bloc -->
+                    <div class="commande-item__actions">
+                        <span class="commande-info-label" style="font-style: italic;">
+                            Traité le <?= date('d/m à H:i', strtotime($a['date'])) ?>
+                        </span>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <div class="compte-empty"><p>Aucun avis dans l'historique.</p></div>
+        <?php endif; ?>
+    </div>
+</div>
             <!-- ====== ONGLET MENUS & PLATS ====== -->
             <div class="compte-panel" id="tab-menus">
                 <div class="employe-sous-tabs">
