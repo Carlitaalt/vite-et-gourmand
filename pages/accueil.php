@@ -174,7 +174,7 @@ require_once '../includes/navbar.php';
         $avis = [];
         if(isset($pdo)){
             try {
-                $stmt = $pdo->query("SELECT a.note, a.description as commentaire, a.created_at, u.prenom, u.nom FROM avis a JOIN utilisateur u ON a.utilisateur_id = u.utilisateur_id WHERE a.statut_avis_id = 2 ORDER BY a.created_at DESC LIMIT 6");
+                $stmt = $pdo->query("SELECT a.note, a.description as commentaire, a.created_at as date, u.prenom, u.nom FROM avis a JOIN utilisateur u ON a.utilisateur_id = u.utilisateur_id WHERE a.statut_avis_id = 2 ORDER BY a.created_at DESC LIMIT 6");
                 $avis = $stmt->fetchAll(PDO::FETCH_ASSOC);
             } catch (Exception $e) {
                 //Silencieux en production
@@ -207,8 +207,8 @@ require_once '../includes/navbar.php';
                                 <?= strtoupper(substr($avisItem['prenom'], 0, 1)) ?>
                             </div>
                             <div>
-                        <span class="avis-nom"><?= htmlspecialchars($avisItem['prenom'] . ' ' . $avisItem['nom']) ?></span>
-                        <span class="avis-date"><?= date('d/m/Y', strtotime($avisItem['created_at'])) ?></span>
+                        <span class="avis-nom"><?= htmlspecialchars($avisItem['prenom']) . ' ' . htmlspecialchars($avisItem['nom']) ?></span>
+                        <span class="avis-date"><?= date('d/m/Y', strtotime($avisItem['date'])) ?></span>
                             </div>
                         </div>
                     </div>

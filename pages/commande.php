@@ -267,7 +267,7 @@ $menusJson = json_encode($menus);
 
                     <div class="commande-field">
 
-                    <label for="nb-personnes" class="commande-label">Nombre de personnes <span class="auth-required">*</span></label>
+                    <label for="nb_personnes" class="commande-label">Nombre de personnes <span class="auth-required">*</span></label>
                     <div class="commande-nb-wrap">
                         <button type="button" class="commande-nb-btn" id="nb-moins">-</button>
                         <input type="number" id="nb_personnes" name="nb_personnes" class="commande-input commande-nb-input" value="1" min="1" inputmode="numeric" required>

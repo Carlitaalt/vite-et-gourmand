@@ -342,21 +342,21 @@ $commandesHistorique = array_filter($commandes, fn($c) => in_array($c['statut_id
                                             <h4 class="modif-form__titre">Modifier la commande</h4>
                                             <div class="commande-field-row">
                                                 <div class="commande-field">
-                                                    <label for="" class="commande-label">Nombre de personnes</label>
+                                                    <label for="nb_pers_<?= $cmd['commande_id'] ?>" class="commande-label">Nombre de personnes</label>
                                                     <input type="number" name="nombre_personnes" class="commande-input" value="<?= $cmd['nombre_personnes'] ?>">
                                                 </div>
                                                 <div class="commande-field">
-                                                    <label for="" class="commande-label">Date de prestation</label>
+                                                    <label for="date_prestation_<?= $cmd['commande_id'] ?>" class="commande-label">Date de prestation</label>
                                                     <input type="date" name="date_prestation" class="commande-input" value="<?= $cmd['date_prestation'] ?>">
                                                 </div>
                                             </div>
                                             <div class="commande-field-row">
                                                 <div class="commande-field">
-                                                    <label for="" class="commande-label">Heure</label>
+                                                    <label for="heure_<?= $cmd['commande_id'] ?>" class="commande-label">Heure</label>
                                                     <input type="time" name="heure_livraison" class="commande-input" value="<?= $cmd['heure_livraison'] ?>">
                                                 </div>
                                                 <div class="commande-field">
-                                                    <label for="" class="commande-label">Adresse de livraison</label>
+                                                    <label for="adresse_<?= $cmd['commande_id'] ?>" class="commande-label">Adresse de livraison</label>
                                                     <input type="text" name="adresse_livraison" class="commande-input" value="<?= htmlspecialchars($cmd['adresse_livraison']) ?? '' ?>">
                                                 </div>
                                             </div>
@@ -483,7 +483,7 @@ $commandesHistorique = array_filter($commandes, fn($c) => in_array($c['statut_id
                                                 <?php endfor; ?>
                                         </div>
                                         <div class="commande-field mt-3">
-                                            <label class="commande-label">Votre commentaire</label>
+                                            <label for="commentaire_<?= $cmd['commande_id'] ?>" class="commande-label">Votre commentaire</label>
                                             <textarea name="commentaire" class="commande-input avis-textarea" placeholder="Partagez votre expérience..." rows="3" required></textarea>
                                         </div>
                                         <button type="submit" class="btn btn-vg-primary mt-2">Envoyer mon avis →</button>
@@ -502,14 +502,14 @@ $commandesHistorique = array_filter($commandes, fn($c) => in_array($c['statut_id
                         <input type="hidden" name="action" value="update_infos">
                         <div class="auth-field-row">
                             <div class="auth-field">
-                                <label for="" class="auth-label">Prénom</label>
+                                <label for="profil_prenom" class="auth-label">Prénom</label>
                                 <div class="auth-input-wrap">
                                     <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                                     <input type="text" name="prenom" class="auth-input" value="<?= htmlspecialchars($user['prenom']) ?>">
                                 </div>
                             </div>
                             <div class="auth-field">
-                                <label for="" class="auth-label">Nom</label>
+                                <label for="profil_nom" class="auth-label">Nom</label>
                                 <div class="auth-input-wrap">
                                     <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                                     <input type="text" name="nom" class="auth-input" value="<?= htmlspecialchars($user['nom']) ?>">
@@ -517,7 +517,7 @@ $commandesHistorique = array_filter($commandes, fn($c) => in_array($c['statut_id
                             </div>
                         </div>
                         <div class="auth-field">
-                            <label for="" class="auth-label">Adresse e-mail</label>
+                            <label for="profil_email" class="auth-label">Adresse e-mail</label>
                             <div class="auth-input-wrap">
                                 <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                                 <input type="email" name="email" class="auth-input" value="<?= htmlspecialchars($user['email']) ?>">
@@ -525,14 +525,14 @@ $commandesHistorique = array_filter($commandes, fn($c) => in_array($c['statut_id
                         </div>
                         <div class="auth-field-row">
                             <div class="auth-field">
-                                <label for="" class="auth-label">Téléphone</label>
+                                <label for="profil_tel" class="auth-label">Téléphone</label>
                                 <div class="auth-input-wrap">
                                     <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z"/></svg>
                                     <input type="tel" name="telephone" class="auth-input" value="<?= htmlspecialchars($user['telephone']) ?>">
                                 </div>
                             </div>
                             <div class="auth-field">
-                                <label for="" class="auth-label">Adresse postale</label>
+                                <label for="profil_adresse" class="auth-label">Adresse postale</label>
                                 <div class="auth-input-wrap">
                                     <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                                     <input type="text" name="adresse" class="auth-input" value="<?= htmlspecialchars($user['adresse_postale']) ?>">
@@ -541,14 +541,14 @@ $commandesHistorique = array_filter($commandes, fn($c) => in_array($c['statut_id
                         </div>
                         <div class="auth-field-row">
                             <div class="auth-field">
-                                <label class="auth-label">Ville</label>
+                                <label for="profil_ville" class="auth-label">Ville</label>
                                 <div class="auth-input-wrap">
                                     <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
                                     <input type="text" name="ville" class="auth-input" value="<?= htmlspecialchars($user['ville'] ?? '') ?>">
                                 </div>
                             </div>
                             <div class="auth-field">
-                                <label class="auth-label">Pays</label>
+                                <label for="profil_pays" class="auth-label">Pays</label>
                                 <div class="auth-input-wrap">
                                     <svg class="auth-input-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                                     <input type="text" name="pays" class="auth-input" value="<?= htmlspecialchars($user['pays'] ?? '') ?>">

@@ -1,5 +1,8 @@
 <?php
 
+//Fuseau horaire
+date_default_timezone_set('Europe/Paris');
+
 // CONNEXION PDO
 
 $host = $_ENV['DB_HOST'] ?? 'localhost';
