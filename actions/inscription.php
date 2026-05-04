@@ -87,7 +87,7 @@ if(empty($erreur)) {
             ':pays' => $pays ?: null
         ]);
 
-        //Mail de bienvenue
+        /*//Mail de bienvenue
         $mail = new PHPMailer(true);
 
         try {
@@ -124,6 +124,7 @@ if(empty($erreur)) {
         } catch(Exception $e) {
             error_log("Erreur PHPMailer : " . $mail->ErrorInfo);
         }
+            */
 
         $_SESSION['succes_inscription'] = 'Compte créé avec succès ! Vous pouvez vous connecter.';
         header('Location: ../pages/connexion.php');
