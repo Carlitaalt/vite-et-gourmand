@@ -5,10 +5,10 @@ date_default_timezone_set('Europe/Paris');
 
 // CONNEXION PDO
 
-$host = $_ENV['DB_HOST'] ?? 'localhost';
-$dbname = $_ENV['DB_NAME'] ?? 'vite_gourmand';
-$user = $_ENV['DB_USER'] ?? 'root';
-$password = $_ENV['DB_PASS'] ?? '';
+$host = 'sql310.infinityfree.com';
+$dbname = 'if0_41824942_vite_gourmand';
+$user = 'if0_41824942';
+$password = 'thoy8NILVbiQ';
 
 $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8mb4";
 
@@ -20,7 +20,8 @@ $options = [
 ];
 
 try {
-    $pdo = new PDO($dsn, $user, $password, $options);
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
     error_log('Erreur BDD : ' . $e->getMessage());
     die('Service indisponible. Veuillez réessayer plus tard.');
