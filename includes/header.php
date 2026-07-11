@@ -7,6 +7,9 @@
 
         <title><?= isset($pageTitle) ? $pageTitle . '- Vite & Gourmand' : 'Vite & Gourmand - Traiteur à Bordeaux' ?></title>
 
+        <!-- Favicon -->
+        <link rel="icon" type="image/png" href="<?= isset($rootPath) ? $rootPath : '../' ?>assets/images/image_logo_vert-removebg-preview.png">
+        
         <!-- Bootstrap -->
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
 
