@@ -169,9 +169,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
                     if($plat_id) {
                         //Modification
-                        $sql = "UPDATE plat SET menu_id = ?, titre_plat = ?, description = ?, categorie = ?, actif = ? WHERE plat_id = ?";
+                        $sql = "UPDATE plat SET titre_plat = ?, description = ?, categorie = ?, actif = ? WHERE plat_id = ?";
                         $stmt = $pdo->prepare($sql);
-                        $stmt->execute([$menu_id, $titre, $desc, $cat, $actif, $plat_id]);
+                        $stmt->execute([$titre, $desc, $cat, $actif, $plat_id]);
 
                         $pdo->prepare("DELETE FROM menu_plat WHERE plat_id = ?")->execute([$plat_id]);
                         $pdo->prepare("INSERT INTO menu_plat (menu_id, plat_id) VALUES (?, ?)")->execute([$menu_id, $plat_id]);
@@ -179,9 +179,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $succes = "Plat mis à jour !";
                     } else {
                         //création
-                        $sql = "INSERT INTO plat (menu_id, titre_plat, description, categorie, actif) VALUES (?, ?, ?, ?, ?)";
+                        $sql = "INSERT INTO plat (titre_plat, description, categorie, actif) VALUES (?, ?, ?, ?)";
                         $stmt = $pdo->prepare($sql);
-                        $stmt->execute([$menu_id, $titre, $desc, $cat, $actif]);
+                        $stmt->execute([$titre, $desc, $cat, $actif]);
 
                         $new_plat_id = $pdo->lastInsertId();
 
@@ -364,20 +364,20 @@ if(!$admin) {
 //Commandes
 try {
     $sqlCommandes ="SELECT c.*,
-                    u.prenom AS client_prenom,
-                    u.nom AS client_nom,
-                    u.email AS client_email,
-                    u.telephone AS client_telephone,
-                    m.titre AS menu_titre,
-                    c.nombre_personnes,
-                    c.heure_livraison,
-                    c.date_prestation
-                    FROM commande c
-                    INNER JOIN utilisateur u ON c.utilisateur_id = u.utilisateur_id
-                    INNER JOIN commande_menu cm ON c.commande_id = cm.commande_id
-                    INNER JOIN menu m ON cm.menu_id = m.menu_id
-                    GROUP BY c.commande_id
-                    ORDER BY c.date_commande DESC";
+                ANY_VALUE(u.prenom) AS client_prenom,
+                ANY_VALUE(u.nom) AS client_nom,
+                ANY_VALUE(u.email) AS client_email,
+                ANY_VALUE(u.telephone) AS client_telephone,
+                ANY_VALUE(m.titre) AS menu_titre,
+                c.nombre_personnes,
+                c.heure_livraison,
+                c.date_prestation
+                FROM commande c
+                INNER JOIN utilisateur u ON c.utilisateur_id = u.utilisateur_id
+                INNER JOIN commande_menu cm ON c.commande_id = cm.commande_id
+                INNER JOIN menu m ON cm.menu_id = m.menu_id
+                GROUP BY c.commande_id
+                ORDER BY c.date_commande DESC";
     $commandes = $pdo->query($sqlCommandes)->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $commandes = [];
@@ -481,14 +481,14 @@ try {
 // Menus complets
 try {
     $stmtMenus = $pdo->query("
-        SELECT m.*, COUNT(mp.plat_id) as nb_plats,
-               mi.url as image_url
-        FROM menu m
-        LEFT JOIN menu_plat mp ON m.menu_id = mp.menu_id
-        LEFT JOIN menu_image mi ON m.menu_id = mi.menu_id AND mi.ordre = 1
-        GROUP BY m.menu_id
-        ORDER BY m.titre ASC
-    ");
+    SELECT m.*, COUNT(mp.plat_id) as nb_plats,
+           ANY_VALUE(mi.url) as image_url
+    FROM menu m
+    LEFT JOIN menu_plat mp ON m.menu_id = mp.menu_id
+    LEFT JOIN menu_image mi ON m.menu_id = mi.menu_id AND mi.ordre = 1
+    GROUP BY m.menu_id
+    ORDER BY m.titre ASC
+");
     $menus = $stmtMenus->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $menus = [];
@@ -497,18 +497,17 @@ try {
 // Plats
 try {
     $stmtPlats = $pdo->query("
-        SELECT p.plat_id, p.titre_plat, p.description, p.categorie, p.actif,
-                mp.menu_id,
-                m.titre AS menu_titre,
-               GROUP_CONCAT(a.libelle SEPARATOR ', ') as allergenes
-        FROM plat p
-        LEFT JOIN menu_plat mp ON p.plat_id = mp.plat_id
-        LEFT JOIN menu m ON mp.menu_id = m.menu_id
-        LEFT JOIN plat_allergene pa ON p.plat_id = pa.plat_id
-        LEFT JOIN allergene a ON pa.allergene_id = a.allergene_id
-        GROUP BY p.plat_id
-        ORDER BY p.titre_plat ASC
-    ");
+    SELECT p.plat_id, p.titre_plat, p.description, p.categorie, p.actif,
+           GROUP_CONCAT(DISTINCT m.titre SEPARATOR ', ') as menu_titre,
+           GROUP_CONCAT(DISTINCT a.libelle SEPARATOR ', ') as allergenes
+    FROM plat p
+    LEFT JOIN menu_plat mp ON p.plat_id = mp.plat_id
+    LEFT JOIN menu m ON mp.menu_id = m.menu_id
+    LEFT JOIN plat_allergene pa ON p.plat_id = pa.plat_id
+    LEFT JOIN allergene a ON pa.allergene_id = a.allergene_id
+    GROUP BY p.plat_id
+    ORDER BY p.titre_plat ASC
+");
     $plats = $stmtPlats->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $plats = [];
@@ -567,6 +566,13 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
         <div class="auth-alert auth-alert--success mb-3">
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
             <?= htmlspecialchars($succes) ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($erreur): ?>
+        <div class="auth-alert auth-alert--error mb-3">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <?= htmlspecialchars($erreur) ?>
         </div>
     <?php endif; ?>
  
@@ -1176,7 +1182,6 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                             </div>
                         </form>
                     </div>
-                </div>
                     <div class="employe-catalogue">
                         <?php foreach ($menus as $menu): ?>
                             <div class="employe-catalogue-item <?= !$menu['actif'] ? 'item--inactif' : '' ?>">

@@ -64,7 +64,7 @@ if (!$menu) {
 
 $prixTotal = (float)($menu['prix_par_personne'] * $menu['nombre_personne_minimum']);
 
-$imagePath = !empty($menu['image_url']) ? "/vite-et-gourmand/" . $menu['image_url'] : "/vite-et-gourmand/assets/images/default-menu.jpg";
+$imagePath = !empty($menu['image_url']) ? $rootPath . $menu['image_url'] : $rootPath . "assets/images/menu-prestige.jpg";
 
 $themeLabel = $menu['theme_nom'] ?? 'Classique';
 $regimeLabel = $menu['regime_nom'] ?? 'Classique';
@@ -72,8 +72,8 @@ $regimeLabel = $menu['regime_nom'] ?? 'Classique';
 $themeSlug = strtolower(trim($themeLabel));
 $themeSlug = str_replace([' ', '/'], '-', $themeSlug);
 $themeSlug = str_replace([' ', 'î', 'é', 'è', 'ê', 'à'], ['-', 'i', 'e', 'e', 'e', 'a'], $themeSlug);
+$regimeSlug = strtolower(trim($regimeLabel));
 $regimeSlug = str_replace(' ', '-', $regimeSlug);
-$regimeSlug = str_replace([' ', 'î', 'é', 'è', 'ê', 'à'], ['-', 'i', 'e', 'e', 'e', 'a'], $regimeSlug);
 
 $badgeClass = 'badge-theme--' . $themeSlug;
 $pillClass = 'regime--' . $regimeSlug;

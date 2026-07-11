@@ -84,11 +84,33 @@ CREATE TABLE utilisateur (
     FOREIGN KEY(role_id) REFERENCES role(role_id)
 ) ENGINE=InnoDB;
 
+CREATE TABLE employes (
+    employe_id INT AUTO_INCREMENT PRIMARY KEY,
+    utilisateur_id INT NOT NULL,
+    poste VARCHAR(100) NOT NULL,
+    salaire_horaire DECIMAL(10, 2),
+    date_embauche DATE,
+
+    CONSTRAINT fk_employes_utilisateur FOREIGN KEY (utilisateur_id) REFERENCES utilisateur(utilisateur_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE password_reset_tokens (
+    token_id INT AUTO_INCREMENT PRIMARY KEY,
+    utilisateur_id INT NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    expire_at DATETIME NOT NULL,
+    used TINYINT(1) NOT NULL DEFAULT 0,
+
+    CONSTRAINT fk_reset_utilisateur FOREIGN KEY (utilisateur_id) REFERENCES utilisateur(utilisateur_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 CREATE TABLE plat (
     plat_id INT AUTO_INCREMENT PRIMARY KEY,
     titre_plat VARCHAR(100) NOT NULL,
     description TEXT,
-    photo VARCHAR(255)
+    categorie VARCHAR(50) NOT NULL DEFAULT 'Plat',
+    photo VARCHAR(255),
+    actif TINYINT(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB;
 
 CREATE TABLE menu (
@@ -100,6 +122,7 @@ CREATE TABLE menu (
     conditions TEXT,
     nombre_personne_minimum INT NOT NULL,
     prix_par_personne DECIMAL (10, 2) NOT NULL,
+    actif TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 

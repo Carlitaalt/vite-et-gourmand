@@ -15,8 +15,9 @@ require_once '../includes/header.php';
 require_once '../includes/navbar.php';
 
 $erreur = $_SESSION['erreur_inscription'] ?? '';
+$succes = $_SESSION['succes_inscription'] ?? '';
 $form = $_SESSION['form_inscription'] ?? [];
-unset($_SESSION['erreur_inscription'], $_SESSION['form_inscription']);
+unset($_SESSION['erreur_inscription'], $_SESSION['succes_inscription'], $_SESSION['form_inscription']);
 
 ?>
 
