@@ -12,6 +12,11 @@ RUN apt-get update && apt-get install -y \
 # Active mod_rewrite (utile si tu ajoutes des routes propres plus tard)
 RUN a2enmod rewrite
 
+# Augmente les limites d'upload PHP (photos de menus)
+RUN echo "upload_max_filesize = 20M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "post_max_size = 25M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "max_file_uploads = 10" >> /usr/local/etc/php/conf.d/uploads.ini
+
 # Installe Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

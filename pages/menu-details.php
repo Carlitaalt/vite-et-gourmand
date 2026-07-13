@@ -19,25 +19,35 @@ if(isset($pdo) && $id > 0) {
         $stmt = $pdo->prepare("
         SELECT m.*,
         t.libelle AS theme_nom,
-        r.libelle AS regime_nom,
-        mi.url AS image_url
+        r.libelle AS regime_nom
         FROM menu m
         LEFT JOIN theme t ON m.theme_id = t.theme_id
         LEFT JOIN regime r ON m.regime_id = r.regime_id
-        LEFT JOIN menu_image mi ON m.menu_id = mi.menu_id AND mi.ordre = 1
         WHERE m.menu_id = :id AND m.actif = 1
         ");
         $stmt->execute([':id' => $id]);
         $menu = $stmt->fetch(PDO::FETCH_ASSOC);
 
+        //Récupérer toutes les images de la galerie pour ce menu
+        $menuImages = [];
+        if($menu) {
+            $stmtImg = $pdo->prepare("SELECT url FROM menu_image WHERE menu_id = :id ORDER BY ordre ASC");
+            $stmtImg->execute([':id' => $id]);
+            $menuImages = $stmtImg->fetchAll(PDO::FETCH_COLUMN);
+        }
+
         if($menu) {
             //Récupérer les plats associés à ce menu
             $stmtPlats = $pdo->prepare("
-                        SELECT p.titre_plat, p.description, p.categorie
+                        SELECT p.plat_id, p.titre_plat, p.description, p.categorie,
+                               GROUP_CONCAT(DISTINCT a.libelle SEPARATOR ', ') AS allergenes
                         FROM plat p
                         INNER JOIN menu_plat mp ON p.plat_id = mp.plat_id
+                        LEFT JOIN plat_allergene pa ON p.plat_id = pa.plat_id
+                        LEFT JOIN allergene a ON pa.allergene_id = a.allergene_id
                         WHERE mp.menu_id = :id
                         AND p.actif = 1
+                        GROUP BY p.plat_id
                         ORDER BY FIELD(p.categorie, 'Entrée', 'Plat', 'Fromage', 'Dessert', 'Boisson')
                         ");
             $stmtPlats->execute([':id' => $id]);
@@ -46,7 +56,8 @@ if(isset($pdo) && $id > 0) {
             foreach($plats_db as $plat) {
                 $platsParCategorie[$plat['categorie']][] = [
                     'nom' => $plat['titre_plat'],
-                    'desc' => $plat['description']
+                    'desc' => $plat['description'],
+                    'allergenes' => $plat['allergenes']
                 ];
             }
         }
@@ -64,7 +75,7 @@ if (!$menu) {
 
 $prixTotal = (float)($menu['prix_par_personne'] * $menu['nombre_personne_minimum']);
 
-$imagePath = !empty($menu['image_url']) ? $rootPath . $menu['image_url'] : $rootPath . "assets/images/menu-prestige.jpg";
+$imagePath = !empty($menuImages[0]) ? $rootPath . $menuImages[0] : $rootPath . "assets/images/menu-prestige.jpg";
 
 $themeLabel = $menu['theme_nom'] ?? 'Classique';
 $regimeLabel = $menu['regime_nom'] ?? 'Classique';
@@ -83,7 +94,7 @@ $pillClass = 'regime--' . $regimeSlug;
 <!-- HERO DETAILS -->
 
 <section class="detail-hero">
-    <div class="detail-hero__bg" style="background-image: url('<?= $imagePath ?>');"></div>
+    <div class="detail-hero__bg" style="background-image: url('<?= $imagePath ?>');" role="img" aria-label="Photo du menu <?= htmlspecialchars($menu['titre']) ?>"></div>
     <div class="detail-hero__overlay"></div>
     <div class="container detail-hero__content">
         <a href="<?= $rootPath ?>pages/menus.php" class="detail-back">
@@ -112,6 +123,21 @@ $pillClass = 'regime--' . $regimeSlug;
         <!-- Colonne principale -->
          <div class="detail-main">
 
+         <!-- Galerie -->
+          <?php if (count($menuImages) > 1): ?>
+          <div class="detail-block">
+            <h2 class="detail-block--title">Galerie</h2>
+            <div class="detail-gallery" style="display:flex; gap:10px; overflow-x:auto; padding-bottom:8px;">
+                <?php foreach ($menuImages as $img): ?>
+                    <img src="<?= $rootPath . htmlspecialchars($img) ?>"
+                         alt="Photo du menu <?= htmlspecialchars($menu['titre']) ?>"
+                         style="width:140px; height:100px; object-fit:cover; border-radius:8px; flex-shrink:0; cursor:pointer;"
+                         onclick="document.querySelector('.detail-hero__bg').style.backgroundImage = \"url('<?= $rootPath . htmlspecialchars($img) ?>')\";">
+                <?php endforeach; ?>
+            </div>
+          </div>
+          <?php endif; ?>
+
          <!-- Description -->
           <div class="detail-block">
             <h2 class="detail-block--title">À propos de ce menu</h2>
@@ -135,8 +161,13 @@ $pillClass = 'regime--' . $regimeSlug;
                                         <?php if(!empty($plat['desc'])): ?>
                                             <div class="plat-item__desc"><?= htmlspecialchars($plat['desc']) ?></div>
                                             <?php endif; ?>
+                                        <?php if(!empty($plat['allergenes'])): ?>
+                                            <div class="plat-item__allergenes" style="font-size:0.8rem; color:#c0392b; margin-top:4px;">
+                                                ⚠️ Allergènes : <?= htmlspecialchars($plat['allergenes']) ?>
+                                            </div>
+                                            <?php endif; ?>
                                     </li>
-                                    <?php endforeach; ?>
+                                <?php endforeach; ?>
                             </ul>
                         </div>
                         <?php endforeach; ?>
@@ -181,9 +212,17 @@ $pillClass = 'regime--' . $regimeSlug;
                         <span class="detail-card-info__label">Personne min.</span>
                         <span class="detail-card-info__val"><?= (int)$menu['nombre_personne_minimum'] ?> pers.</span>
                     </div>
+                    <div class="detail-card-info">
+                        <span class="detail-card-info__label">Disponibilité</span>
+                        <span class="detail-card-info__val"><?= (int)$menu['stock_disponible'] ?> commande(s) restante(s)</span>
+                    </div>
                 </div>
                 <div class="detail-card-prix__footer">
-                    <a href="<?= $rootPath ?>pages/commande.php?menu=<?= (int)$menu['menu_id'] ?>" class="btn btn-vg-primary w-100">Commander →</a>
+                    <?php if ((int)$menu['stock_disponible'] > 0): ?>
+                        <a href="<?= $rootPath ?>pages/commande.php?menu=<?= (int)$menu['menu_id'] ?>" class="btn btn-vg-primary w-100">Commander →</a>
+                    <?php else: ?>
+                        <button class="btn btn-vg-primary w-100" disabled style="opacity:0.5; cursor:not-allowed;">Complet</button>
+                    <?php endif; ?>
                     <a href="<?= $rootPath ?>pages/menus.php" class="btn btn-vg-secondary w-100 mt-2">← Voir tous les menus</a>
                 </div>
             </div>

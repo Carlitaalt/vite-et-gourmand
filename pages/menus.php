@@ -22,6 +22,7 @@ if(isset($pdo)){
         m.conditions,
         m.nombre_personne_minimum,
         m.prix_par_personne,
+        m.stock_disponible,
         (m.prix_par_personne * m.nombre_personne_minimum) AS prix_total,
         mi.url AS image_url,
         t.libelle AS theme_nom,
@@ -209,7 +210,16 @@ $regimePillClass = [
                             <small><?= number_format((float)$menu['prix_par_personne'], 2, ',', ' ') ?> / pers.</small>
                         </div>
                     </div>
+
+                    <?php if ((int)$menu['stock_disponible'] <= 0): ?>
+                        <p class="menu-card__stock" style="color:#c0392b; font-weight:600; margin-top:8px;">Complet — plus de disponibilité</p>
+                    <?php elseif ((int)$menu['stock_disponible'] <= 3): ?>
+                        <p class="menu-card__stock" style="color:#e67e22; font-weight:600; margin-top:8px;">Plus que <?= (int)$menu['stock_disponible'] ?> commande(s) possible(s) !</p>
+                    <?php else: ?>
+                        <p class="menu-card__stock" style="color:#27ae60; margin-top:8px;">Disponible — <?= (int)$menu['stock_disponible'] ?> commandes possibles</p>
+                    <?php endif; ?>
                 </div>
+
 
                 <!-- Footer -->
                 <div class="menu-card__footer">

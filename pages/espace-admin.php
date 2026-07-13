@@ -91,43 +91,57 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $actif = isset($_POST['actif']) ? $_POST['actif'] : 1;
                 $theme_id = $_POST['theme_id'] ?? 1;
                 $regime_id = $_POST['regime_id'] ?? 1;
+                $stock = (int)($_POST['stock_disponible'] ?? 0);
                 $menu_id = (!empty($_POST['menu_id'])) ? (int)$_POST['menu_id'] : null;
                 
                 try {
                     if($menu_id) {
-                        $sql = "UPDATE menu SET titre = ?, prix_par_personne = ?, nombre_personne_minimum = ?, description = ?, conditions = ?, actif = ?, theme_id = ?, regime_id = ?, updated_at = NOW() WHERE menu_id = ?";
+                        $sql = "UPDATE menu SET titre = ?, prix_par_personne = ?, nombre_personne_minimum = ?, description = ?, conditions = ?, actif = ?, theme_id = ?, regime_id = ?, stock_disponible = ?, updated_at = NOW() WHERE menu_id = ?";
                         $stmt = $pdo->prepare($sql);
-                        $stmt->execute([$titre, $prix, $nb_pers_min, $description, $conditions, $actif, $theme_id, $regime_id, $menu_id]);
+                        $stmt->execute([$titre, $prix, $nb_pers_min, $description, $conditions, $actif, $theme_id, $regime_id, $stock, $menu_id]);
                         $succes = "Le menu '" . htmlspecialchars($titre) . "' a été mis à jour.";
                     } else {
                     //Création d'un nouveau menu
-                        $sql = "INSERT INTO menu (titre, prix_par_personne, nombre_personne_minimum, description, conditions, actif, theme_id, regime_id, created_at, updated_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
+                        $sql = "INSERT INTO menu (titre, prix_par_personne, nombre_personne_minimum, description, conditions, actif, theme_id, regime_id, stock_disponible, created_at, updated_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
                         $stmt = $pdo->prepare($sql);
-                        $stmt->execute([$titre, $prix, $nb_pers_min, $description, $conditions, $actif, $theme_id, $regime_id]);
+                        $stmt->execute([$titre, $prix, $nb_pers_min, $description, $conditions, $actif, $theme_id, $regime_id, $stock]);
                         $menu_id = $pdo->lastInsertId();
                         $succes = "Le nouveau menu a été crée.";
 
                     }
                 
-                if (isset($_FILES['menu_photo']) && $_FILES['menu_photo']['error'] === 0) {
+                if (isset($_FILES['menu_photo']) && !empty($_FILES['menu_photo']['name'][0])) {
                     $uploadDir = '../assets/images/menus/';
 
-                    $extension = pathinfo($_FILES['menu_photo']['name'], PATHINFO_EXTENSION);
-                    $nomFichier = "menu_" . $menu_id . "_" . time() . "." . $extension;
-                    $destination = $uploadDir . $nomFichier;
+                    //On récupère l'ordre max déjà utilisé pour ce menu, pour ajouter à la suite
+                    $stmtMaxOrdre = $pdo->prepare("SELECT COALESCE(MAX(ordre), 0) FROM menu_image WHERE menu_id = ?");
+                    $stmtMaxOrdre->execute([$menu_id]);
+                    $ordre = (int)$stmtMaxOrdre->fetchColumn() + 1;
 
-                    if(move_uploaded_file($_FILES['menu_photo']['tmp_name'], $destination)) {
-                        //Enregistrer le chemin de l'image en BDD
-                        $urlBDD = "assets/images/menus/" . $nomFichier;
+                    $nbAjoutees = 0;
+                    $nbFichiers = count($_FILES['menu_photo']['name']);
 
-                        $stmtDel = $pdo->prepare("DELETE FROM menu_image WHERE menu_id = ?");
-                        $stmtDel->execute([$menu_id]);
+                    for ($i = 0; $i < $nbFichiers; $i++) {
+                        if ($_FILES['menu_photo']['error'][$i] === 0) {
+                            $extension = pathinfo($_FILES['menu_photo']['name'][$i], PATHINFO_EXTENSION);
+                            $nomFichier = "menu_" . $menu_id . "_" . time() . "_" . $ordre . "." . $extension;
+                            $destination = $uploadDir . $nomFichier;
 
-                        $stmtImg = $pdo->prepare("INSERT INTO menu_image (menu_id, url, ordre) VALUES (?, ?, 1)");
-                        $stmtImg->execute([$menu_id, $urlBDD]);
+                            if (move_uploaded_file($_FILES['menu_photo']['tmp_name'][$i], $destination)) {
+                                $urlBDD = "assets/images/menus/" . $nomFichier;
 
-                        $succes .= " Photo du menu enregistrée avec succès.";
+                                $stmtImg = $pdo->prepare("INSERT INTO menu_image (menu_id, url, ordre) VALUES (?, ?, ?)");
+                                $stmtImg->execute([$menu_id, $urlBDD, $ordre]);
+
+                                $ordre++;
+                                $nbAjoutees++;
+                            }
+                        }
+                    }
+
+                    if ($nbAjoutees > 0) {
+                        $succes .= " " . $nbAjoutees . " photo(s) ajoutée(s) avec succès.";
                     }
                 }
                 } catch(PDOException $e){
@@ -158,6 +172,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $menu_id = !empty($_POST['menu_id']) ? (int)$_POST['menu_id'] : null;
                 $actif = isset($_POST['actif']) ? (int)$_POST['actif'] : 1;
                 $plat_id = !empty($_POST['plat_id']) ? $_POST['plat_id'] : null;
+                $allergenesChoisis = $_POST['allergenes'] ?? [];
 
                 if(!$menu_id) {
                     $erreur = "Erreur : Vous devez rattacher le plat à un menu.";
@@ -184,12 +199,22 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $stmt->execute([$titre, $desc, $cat, $actif]);
 
                         $new_plat_id = $pdo->lastInsertId();
+                        $plat_id = $new_plat_id;
 
                         $sqlLien = "INSERT INTO menu_plat (menu_id, plat_id) VALUES (?, ?)";
                         $stmtLien = $pdo->prepare($sqlLien);
                         $stmtLien->execute([$menu_id, $new_plat_id]);
 
                         $succes = "Nouveau plat ajouté au menu !";
+                    }
+
+                    //Enregistrement des allergènes (on repart de zéro à chaque fois)
+                    $pdo->prepare("DELETE FROM plat_allergene WHERE plat_id = ?")->execute([$plat_id]);
+                    if(!empty($allergenesChoisis)) {
+                        $stmtAllergene = $pdo->prepare("INSERT INTO plat_allergene (plat_id, allergene_id) VALUES (?, ?)");
+                        foreach($allergenesChoisis as $allergeneId) {
+                            $stmtAllergene->execute([$plat_id, (int)$allergeneId]);
+                        }
                     }
                     $pdo->commit();
 
@@ -201,43 +226,52 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $erreur = "Erreur Plat : " . $e->getMessage();
                     }
                     break;
-                
-
-            case 'delete_plat':
-                $plat_id = $_POST['plat_id'];
-                $stmt = $pdo->prepare("DELETE FROM plat WHERE plat_id = ?");
-                $stmt->execute([$plat_id]);
-                $succes = "Plat supprimé.";
-                break;
-                
-
-            case 'update_horaires':
-                try {
-                    $pdo->beginTransaction();
-
-                    foreach($_POST['debut'] as $jour => $heure_ouv) {
-                        $heure_fer = $_POST['fin'][$jour];
-                        $estOuvert = isset($_POST['ouvert'][$jour]);
-
-                        if($estOuvert){
-                            $final_ouv = !empty($heure_ouv) ? $heure_ouv : '09:00:00';
-                            $final_fer = !empty($heure_fer) ? $heure_fer : '18:00:00';
-                        } else {
-                            $final_ouv = '00:00:00';
-                            $final_fer = '00:00:00';
-                        }
-
-                    $stmt = $pdo->prepare("UPDATE horaire SET heure_ouverture = ?, heure_fermeture = ? WHERE jour = ?");
-                    $stmt->execute([$final_ouv, $final_fer, $jour]);
+            
+                case 'delete_menu_image':
+                    $image_id = (int)($_POST['image_id'] ?? 0);
+                    if ($image_id) {
+                        $stmt = $pdo->prepare("DELETE FROM menu_image WHERE image_id = ?");
+                        $stmt->execute([$image_id]);
+                        $succes = "Photo supprimée.";
                     }
-                    
-                    $pdo->commit();
-                    $succes = "Les horaires du restaurant ont été mis à jour avec succès.";
-                } catch (Exception $e) {
-                    if($pdo->inTransaction()) $pdo->rollBack();
-                    $erreur = "Erreur lors de la mise à jour : " . $e->getMessage();
-                }
                 break;
+                
+
+                case 'delete_plat':
+                    $plat_id = $_POST['plat_id'];
+                    $stmt = $pdo->prepare("DELETE FROM plat WHERE plat_id = ?");
+                    $stmt->execute([$plat_id]);
+                    $succes = "Plat supprimé.";
+                    break;
+                
+
+                case 'update_horaires':
+                    try {
+                        $pdo->beginTransaction();
+
+                        foreach($_POST['debut'] as $jour => $heure_ouv) {
+                            $heure_fer = $_POST['fin'][$jour];
+                            $estOuvert = isset($_POST['ouvert'][$jour]);
+
+                            if($estOuvert){
+                                $final_ouv = !empty($heure_ouv) ? $heure_ouv : '09:00:00';
+                                $final_fer = !empty($heure_fer) ? $heure_fer : '18:00:00';
+                            } else {
+                                $final_ouv = '00:00:00';
+                                $final_fer = '00:00:00';
+                            }
+
+                        $stmt = $pdo->prepare("UPDATE horaire SET heure_ouverture = ?, heure_fermeture = ? WHERE jour = ?");
+                        $stmt->execute([$final_ouv, $final_fer, $jour]);
+                        }
+                    
+                        $pdo->commit();
+                        $succes = "Les horaires du restaurant ont été mis à jour avec succès.";
+                    } catch (Exception $e) {
+                        if($pdo->inTransaction()) $pdo->rollBack();
+                        $erreur = "Erreur lors de la mise à jour : " . $e->getMessage();
+                    }
+                    break;
 
                 case 'update_statut':
                     $commande_id = (int)$_POST['commande_id'];
@@ -515,6 +549,7 @@ try {
 
 $themes = $pdo->query("SELECT * FROM theme ORDER BY libelle ASC")->fetchAll(PDO::FETCH_ASSOC);
 $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PDO::FETCH_ASSOC);
+$allergenesListe = $pdo->query("SELECT * FROM allergene ORDER BY libelle ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
 
@@ -1135,8 +1170,8 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                             <h4 class="modif-form__titre">Nouveau menu</h4>
                             <div class="commande-field-row">
                                 <div class="commande-field">
-                                    <label class="commande-label">Photo du menu</label>
-                                    <input type="file" name="menu_photo" class="commande-input" accept="image/*">
+                                    <label class="commande-label">Photos du menu (plusieurs possibles)</label>
+                                    <input type="file" name="menu_photo[]" class="commande-input" accept="image/*" multiple>
                                 </div>
                                 <div class="commande-field">
                                     <label class="commande-label">Titre</label>
@@ -1174,11 +1209,14 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                     <label class="commande-label">Nb. personnes min.</label>
                                     <input type="number" name="nombre_personne_minimum" class="commande-input" min="1" value="1" required>
                                 </div>
+                                <div class="commande-field">
+                                    <label class="commande-label">Stock disponible</label>
+                                    <input type="number" name="stock_disponible" class="commande-input" min="0" value="10" required>
+                                </div>
                             </div>
                             <div class="modif-form__actions">
                                 <button type="submit" class="btn btn-vg-primary">Créer</button>
-                                <button type="button" class="btn btn-vg-secondary"
-                                        onclick="toggleForm('form-admin-nouveau-menu')">Annuler</button>
+                                <button type="button" class="btn btn-vg-secondary" onclick="toggleForm('form-admin-nouveau-menu')">Annuler</button>
                             </div>
                         </form>
                     </div>
@@ -1221,13 +1259,30 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                         <input type="hidden" name="menu_id" value="<?= $menu['menu_id'] ?>">
                                         <div class="commande-field-row">
                                             <div class="commande-field">
-                                                <label class="commande-label">Changer la photo</label>
+                                                <label class="commande-label">Ajouter des photos (plusieurs possibles)</label>
                                                 <div style="display:flex; flex-direction:column; gap:5px;">
-                                                    <input type="file" name="menu_photo" class="commande-input" accept="image/*">
-                                                    <?php if(!empty($menu['image_url'])): ?>
-                                                        <span style="font-size: 0.70em; color: #c4973a">
-                                                            Fichier actuel : <?= basename($menu['image_url']) ?>
-                                                        </span>
+                                                    <input type="file" name="menu_photo[]" class="commande-input" accept="image/*" multiple>
+
+                                                    <?php
+                                                        $stmtImgsMenu = $pdo->prepare("SELECT image_id, url FROM menu_image WHERE menu_id = ? ORDER BY ordre ASC");
+                                                        $stmtImgsMenu->execute([$menu['menu_id']]);
+                                                        $imagesExistantes = $stmtImgsMenu->fetchAll(PDO::FETCH_ASSOC);
+                                                    ?>
+
+                                                    <?php if(!empty($imagesExistantes)): ?>
+                                                        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+                                                            <?php foreach($imagesExistantes as $img): ?>
+                                                                <div style="position:relative;">
+                                                                    <img src="<?= $rootPath . htmlspecialchars($img['url']) ?>" style="width:70px; height:50px; object-fit:cover; border-radius:4px;">
+                                                                    <button type="submit" name="action" value="delete_menu_image"
+                                                                            formnovalidate
+                                                                            onclick="this.form.image_id.value='<?= $img['image_id'] ?>'; this.form.menu_id_img.value='<?= $menu['menu_id'] ?>';"
+                                                                            style="position:absolute; top:-6px; right:-6px; background:#c0392b; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; line-height:1;">✕</button>
+                                                                </div>
+                                                            <?php endforeach; ?>
+                                                        </div>
+                                                        <input type="hidden" name="image_id" value="">
+                                                        <input type="hidden" name="menu_id_img" value="">
                                                     <?php else: ?>
                                                         <span style="font-size:0.70em; color: #999;">
                                                             Aucune photo enregistrée
@@ -1250,6 +1305,10 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                             <div class="commande-field">
                                                 <label class="commande-label">Nb. personnes min.</label>
                                                 <input type="number" name="nombre_personne_minimum" class="commande-input" min="1" value="<?= $menu['nombre_personne_minimum'] ?? 1 ?>" required>
+                                            </div>
+                                            <div class="commande-field">
+                                                <label class="commande-label">Stock disponible</label>
+                                                <input type="number" name="stock_disponible" class="commande-input" min="0" value="<?= (int)($menu['stock_disponible'] ?? 0) ?>" required>
                                             </div>
                                             <div class="commande-field">
                                                 <label class="commande-label">Thème</label>
@@ -1347,8 +1406,20 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                             </div>
 
                             <div class="commande-field">
-                                <label class="commande-label">Description / Allergènes</label>
+                                <label class="commande-label">Description</label>
                                 <textarea name="description" class="commande-input"></textarea>
+                            </div>
+
+                            <div class="commande-field">
+                                <label class="commande-label">Allergènes présents</label>
+                                <div style="display:flex; flex-wrap:wrap; gap:12px;">
+                                    <?php foreach ($allergenesListe as $a): ?>
+                                        <label style="display:flex; align-items:center; gap:5px; font-weight:normal;">
+                                            <input type="checkbox" name="allergenes[]" value="<?= $a['allergene_id'] ?>">
+                                            <?= htmlspecialchars($a['libelle']) ?>
+                                        </label>
+                                    <?php endforeach; ?>
+                                </div>
                             </div>
 
                             <div class="modif-form__actions">
@@ -1390,11 +1461,16 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                         <input type="hidden" name="action" value="update_plat">
                                         <input type="hidden" name="plat_id" value="<?= $plat['plat_id'] ?>">
 
+                                        <?php
+                                            $stmtPlatMenu = $pdo->prepare("SELECT menu_id FROM menu_plat WHERE plat_id = ?");
+                                            $stmtPlatMenu->execute([$plat['plat_id']]);
+                                            $menusDuPlat = $stmtPlatMenu->fetchAll(PDO::FETCH_COLUMN);
+                                        ?>
                                         <div class="commande-field">
-                                            <label class="commande-label">Changer de Menu</label>
+                                            <label class="commande-label"></label>
                                             <select name="menu_id" class="commande_input">
                                                 <?php foreach ($menusBDD as $m): ?>
-                                                    <option value="<?= $m['menu_id'] ?>" <?= $m['menu_id'] == $plat['menu_id'] ? 'selected' : '' ?>>
+                                                    <option value="<?= $m['menu_id'] ?>" <?= in_array($m['menu_id'], $menusDuPlat) ? 'selected' : '' ?>>
                                                         <?= htmlspecialchars($m['titre']) ?>
                                                     </option>
                                                     <?php endforeach; ?>
@@ -1420,6 +1496,23 @@ $regimes = $pdo->query("SELECT * FROM regime ORDER BY libelle ASC")->fetchAll(PD
                                         <div class="commande-field">
                                             <label class="commande-label">Description</label>
                                             <textarea name="description" class="commande-input"><?= htmlspecialchars($plat['description']) ?></textarea>
+                                        </div>
+
+                                        <?php
+                                            $stmtPlatAllergenes = $pdo->prepare("SELECT allergene_id FROM plat_allergene WHERE plat_id = ?");
+                                            $stmtPlatAllergenes->execute([$plat['plat_id']]);
+                                            $allergenesDuPlat = $stmtPlatAllergenes->fetchAll(PDO::FETCH_COLUMN);
+                                        ?>
+                                        <div class="commande-field">
+                                            <label class="commande-label">Allergènes présents</label>
+                                            <div style="display:flex; flex-wrap:wrap; gap:12px;">
+                                                <?php foreach ($allergenesListe as $a): ?>
+                                                    <label style="display:flex; align-items:center; gap:5px; font-weight:normal;">
+                                                        <input type="checkbox" name="allergenes[]" value="<?= $a['allergene_id'] ?>" <?= in_array($a['allergene_id'], $allergenesDuPlat) ? 'checked' : '' ?>>
+                                                        <?= htmlspecialchars($a['libelle']) ?>
+                                                    </label>
+                                                <?php endforeach; ?>
+                                            </div>
                                         </div>
 
                                         <div class="commande-field">

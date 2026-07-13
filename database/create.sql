@@ -125,6 +125,7 @@ CREATE TABLE menu (
     nombre_personne_minimum INT NOT NULL,
     prix_par_personne DECIMAL (10, 2) NOT NULL,
     actif TINYINT(1) NOT NULL DEFAULT 1,
+    stock_disponible INT NOT NULL DEFAULT 10,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 

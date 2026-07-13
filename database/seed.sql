@@ -111,25 +111,41 @@ INSERT INTO plat (titre_plat, description, categorie, actif) VALUES
 
 -- Allergènes associés à quelques plats (exemples)
 INSERT INTO plat_allergene (plat_id, allergene_id) VALUES
-(2, 7),  -- Tartare de saumon -> Poisson
-(5, 7),  -- Saumon rôti -> Poisson
-(8, 7),  -- Filet de bar -> Poisson
-(4, 2),  -- Salade de chèvre chaud -> Lactose
-(12, 2), -- Assiette de fromages -> Lactose
-(9, 1),  -- Tarte au citron -> Gluten
-(9, 3);  -- Tarte au citron -> Œuf
+-- Velouté de saison (crème)
+(1, 2),
+-- Tartare de saumon (poisson)
+(2, 7),
+-- Feuilleté aux champignons (pâte + beurre)
+(3, 1), (3, 2),
+-- Salade de chèvre chaud (fromage + toast)
+(4, 1), (4, 2),
+-- Saumon rôti (poisson)
+(5, 7),
+-- Magret de canard (aucun allergène courant)
+-- Risotto aux champignons (parmesan/beurre)
+(7, 2),
+-- Filet de bar (poisson)
+(8, 7),
+-- Tarte au citron (pâte, œuf, crème)
+(9, 1), (9, 2), (9, 3),
+-- Fondant au chocolat (farine, œuf, beurre)
+(10, 1), (10, 2), (10, 3),
+-- Crème brûlée (œuf, crème)
+(11, 2), (11, 3),
+-- Assiette de fromages (lactose)
+(12, 2);
 
 -- =====================================================
 -- 10. MENUS DE DÉMONSTRATION
 -- theme_id : 1 Noël, 2 Pâques, 3 Classique, 4 Évènement
 -- regime_id : 1 Classique, 2 Végétarien, 3 Vegan
 -- =====================================================
-INSERT INTO menu (theme_id, regime_id, titre, description, conditions, nombre_personne_minimum, prix_par_personne, actif) VALUES
-(3, 1, 'Menu Classique', 'Un menu convivial pour toutes vos réceptions.', 'Commande 5 jours avant la prestation.', 10, 35.00, 1),
-(4, 2, 'Menu Végétarien', 'Une sélection de plats végétariens raffinés.', 'Commande 7 jours avant la prestation.', 8, 32.00, 1),
-(1, 1, 'Menu de Noël', 'Notre menu festif pour les fêtes de fin d''année.', 'Commande 15 jours avant la prestation. Minimum 10 personnes.', 10, 55.00, 1),
-(2, 1, 'Menu de Pâques', 'Un menu printanier pour célébrer Pâques en famille.', 'Commande 10 jours avant la prestation.', 8, 42.00, 1),
-(4, 1, 'Menu Prestige', 'Notre menu haut de gamme pour événements exceptionnels.', 'Commande 15 jours avant la prestation. Prêt de matériel possible.', 15, 65.00, 1);
+INSERT INTO menu (theme_id, regime_id, titre, description, conditions, nombre_personne_minimum, prix_par_personne, actif, stock_disponible) VALUES
+(3, 1, 'Menu Classique', 'Un menu convivial pour toutes vos réceptions.', 'Commande 5 jours avant la prestation.', 10, 35.00, 1, 15),
+(4, 2, 'Menu Végétarien', 'Une sélection de plats végétariens raffinés.', 'Commande 7 jours avant la prestation.', 8, 32.00, 1, 12),
+(1, 1, 'Menu de Noël', 'Notre menu festif pour les fêtes de fin d''année.', 'Commande 15 jours avant la prestation. Minimum 10 personnes.', 10, 55.00, 1, 8),
+(2, 1, 'Menu de Pâques', 'Un menu printanier pour célébrer Pâques en famille.', 'Commande 10 jours avant la prestation.', 8, 42.00, 1, 10),
+(4, 1, 'Menu Prestige', 'Notre menu haut de gamme pour événements exceptionnels.', 'Commande 15 jours avant la prestation. Prêt de matériel possible.', 15, 65.00, 1, 5);
 
 -- Liaison menus / plats (une entrée, un plat, un dessert par menu)
 INSERT INTO menu_plat (menu_id, plat_id) VALUES

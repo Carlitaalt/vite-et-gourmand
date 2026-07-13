@@ -78,6 +78,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     $heurePresta = trim($_POST['heure_prestation'] ?? '');
     $adressePresta = trim($_POST['adresse_prestation'] ?? '');
     $villePresta = trim($_POST['ville_prestation'] ?? '');
+    $distanceKm = (float)($_POST['distance_km'] ?? 0);
     $pretMateriel = isset($_POST['pret_materiel']) ? 1 : 0;
 
     if(!$menuId || $nbPersonnes <= 0 ||empty($datePresta) ||empty($heurePresta) || empty($adressePresta) ||empty($villePresta)) {
@@ -87,7 +88,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->beginTransaction();
 
         //Récupérer le menu en BDD pour avoir le vrai prix
-        $stmtM = $pdo->prepare("SELECT prix_par_personne, nombre_personne_minimum FROM menu WHERE menu_id = ? AND actif = 1");
+        $stmtM = $pdo->prepare("SELECT prix_par_personne, nombre_personne_minimum, stock_disponible FROM menu WHERE menu_id = ? AND actif = 1");
         $stmtM->execute([$menuId]);
         $menuInfos = $stmtM->fetch();
 
@@ -99,22 +100,25 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception("Le minimum de personnes n'est pas atteint.");
         }
 
+        if($menuInfos['stock_disponible'] <= 0) {
+            throw new Exception("Ce menu n'a plus de disponibilité actuellement.");
+        }
+
         //Calculs financier
         $prixUnitaire = (float)$menuInfos['prix_par_personne'];
         $sousTotal = $prixUnitaire * $nbPersonnes;
 
         //FRAIS DE LIVRAISON
-        $seuilGratuite = 200;
-        $fraisFixes = 15.00;
-
-        if($sousTotal >= $seuilGratuite) {
+        $villeNormalisee = mb_strtolower(trim($villePresta));
+        if($villeNormalisee === 'bordeaux') {
             $fraisLivraison = 0;
         } else {
-            $fraisLivraison = $fraisFixes;
+            $fraisLivraison = 5.00 + (0.59 * $distanceKm);
         }
 
-        //Logique de remise
-        $remise = ($sousTotal > 300) ? ($sousTotal * 0.10) : 0;
+        //Logique de remise : 10% si la commande a au moins 5 personnes de plus que le minimum du menu
+        $seuilRemise = $menuInfos['nombre_personne_minimum'] + 5;
+        $remise = ($nbPersonnes >= $seuilRemise) ? ($sousTotal * 0.10) : 0;
         $totalFinal = $sousTotal - $remise + $fraisLivraison;
 
         $stmtC = $pdo->prepare("INSERT INTO commande (
@@ -150,6 +154,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmtCM = $pdo->prepare("INSERT INTO commande_menu (commande_id, menu_id, quantite, prix_unitaire)
                                 VALUES (?, ?, ?, ?)");
         $stmtCM->execute([$commandeId, $menuId, $nbPersonnes, $prixUnitaire]);
+
+        //Décrémentation du stock disponible du menu
+        $stmtStock = $pdo->prepare("UPDATE menu SET stock_disponible = stock_disponible - 1 WHERE menu_id = ? AND stock_disponible > 0");
+        $stmtStock->execute([$menuId]);
 
         $pdo->commit();
         $succes = "Votre commande n°$commandeId a été validée avec succès !";
@@ -307,25 +315,29 @@ $menusJson = json_encode($menus);
                                 <label for="ville_prestation" class="commande-label">Ville <span class="auth-required">*</span></label>
                                 <input type="text" id="ville_prestation" name="ville_prestation" class="commande-input" placeholder="Paris" value="<?= htmlspecialchars($_POST['ville_prestation'] ?? $user['ville']) ?>" required>
                             </div>
-                        </div>
-                        <span class="commande-livraison-info" id="livraison-info"></span>
+                           <div class="commande-field">
+                                <label for="distance_km" class="commande-label">Distance (km)</label>
+                                <input type="number" id="distance_km" name="distance_km" class="commande-input" placeholder="0" min="0" step="0.1" value="<?= htmlspecialchars($_POST['distance_km'] ?? '0') ?>" required>
+                                <p style="font-size: 0.8rem; color: #666; margin-top: 4px;">Laissez à 0 si la livraison est à Bordeaux (gratuite).</p>
+                            </div>
+                            <span class="commande-livraison-info" id="livraison-info"></span>
 
-                        <div class="commande-option-item mt-3 mb-3">
-                            <div class="d-flex align-items-center">
+                            <div class="commande-option-item mt-3 mb-3">
+                                <div class="d-flex align-items-center">
                                 <input type="checkbox" id="pret_materiel" name="pret_materiel" value="1">
                                 <label for="pret_materiel" class="commande-label ms-3">
                                     Besoin de prêt de matériel (Vaiselle, couverts, tables...)
                                 </label>
+                                </div>
+                                <p style="font-size: 0.85rem; color: #555; margin-left: 28px; margin-top: 5px;">
+                                    Service gratuit. Nous inclurons le nécessaire selon le nombre de convives.
+                                </p>
                             </div>
-                            <p style="font-size: 0.85rem; color: #555; margin-left: 28px; margin-top: 5px;">
-                                Service gratuit. Nous inclurons le nécessaire selon le nombre de convives.
-                            </p>
+                            <button type="button" class="commande-btn-calcul" id="btn-calcul-livraison">
+                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                                Calculer les frais de livraison
+                            </button>
                         </div>
-                        <button type="button" class="commande-btn-calcul" id="btn-calcul-livraison">
-                            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                            Calculer les frais de livraison
-                        </button>
-                    </div>
                 </div>
              </div>
 
@@ -424,13 +436,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // --- CALCULS ---
             const sousTotal = prixUnit * nb;
-            // Remise de 10% si le total menu dépasse 300€
-            const remise = (sousTotal > 300) ? (sousTotal * 0.10) : 0;
-            // Livraison gratuite si le total menu dépasse 200€
-            const seuilGratuite = 200;
-            const fraisLivraison = (sousTotal >= seuilGratuite) ? 0 : 15.00;
+
+            // Remise de 10% si la commande a au moins 5 personnes de plus que le minimum
+            const seuilRemisePersonnes = minAllowed + 5;
+            const remise = (nb >= seuilRemisePersonnes) ? (sousTotal * 0.10) : 0;
+
+            // Livraison gratuite à Bordeaux, sinon 5€ + 0,59€/km
+            const villeInput = document.getElementById('ville_prestation');
+            const distanceInput = document.getElementById('distance_km');
+            const ville = villeInput ? villeInput.value.trim().toLowerCase() : '';
+            const distance = distanceInput ? parseFloat(distanceInput.value) || 0 : 0;
+            const fraisLivraison = (ville === 'bordeaux') ? 0 : (5.00 + (0.59 * distance));
+
             const totalFinal = sousTotal - remise + fraisLivraison;
-            const formatFR = (num) => num.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " €";
+            const formatFR = (num) => num.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
             // --- MISE À JOUR VISUELLE (SIDEBAR) ---
             if (recapMenu) recapMenu.textContent = selectedOption.text.split('-')[0].trim();
@@ -458,12 +477,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // Petit message d'info livraison sous l'adresse
             const infoLivraison = document.getElementById('livraison-info');
             if (infoLivraison) {
-                if (fraisLivraison === 0) {
-                    infoLivraison.textContent = "Bravo ! Livraison offerte.";
+                if (ville === 'bordeaux') {
+                    infoLivraison.textContent = "Livraison offerte à Bordeaux !";
                     infoLivraison.style.color = "green";
+                } else if (ville === '') {
+                    infoLivraison.textContent = "";
                 } else {
-                    const restant = seuilGratuite - sousTotal;
-                    infoLivraison.textContent = `Plus que ${restant.toFixed(2)}€ pour la livraison gratuite.`;
+                    infoLivraison.textContent = `Livraison hors Bordeaux : 5€ + 0,59€/km (${distance} km).`;
                     infoLivraison.style.color = "inherit";
                 }
             }
@@ -490,6 +510,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Changement de menu ou saisie manuelle du nombre
     menuSelect.addEventListener('change', updateAll);
     nbInput.addEventListener('input', updateAll);
+
+    // Recalcul quand on tape la ville ou la distance
+    const villeInputEl = document.getElementById('ville_prestation');
+    const distanceInputEl = document.getElementById('distance_km');
+    if (villeInputEl) villeInputEl.addEventListener('input', updateAll);
+    if (distanceInputEl) distanceInputEl.addEventListener('input', updateAll);
 
     // Initialisation au chargement de la page
     updateAll();
