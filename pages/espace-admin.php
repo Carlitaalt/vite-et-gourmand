@@ -4,6 +4,7 @@ session_start();
 
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
+require_once '../includes/mongo.php';
 
 exiger_role('administrateur');
 
@@ -448,6 +449,32 @@ foreach($commandes as &$cmd){
 }
 unset($cmd);
 
+//Statistiques "nombre de commandes par menu" depuis MongoDB (exigence du cahier des charges)
+$statsMongoParMenu = [];
+if ($mongoClient) {
+    try {
+        $pipeline = [
+            ['$group' => [
+                '_id' => '$menu_titre',
+                'nb_commandes' => ['$sum' => 1]
+            ]]
+        ];
+        $command = new MongoDB\Driver\Command([
+            'aggregate' => 'commandes_stats',
+            'pipeline' => $pipeline,
+            'cursor' => new stdClass()
+        ]);
+        $resultatMongo = $mongoClient->executeCommand('vite_gourmand', $command);
+        foreach ($resultatMongo as $doc) {
+            $statsMongoParMenu[] = [
+                'titre' => $doc->_id,
+                'nb_commandes' => $doc->nb_commandes
+            ];
+        }
+    } catch (Exception $e) {
+        error_log('[MongoDB read] ' . $e->getMessage());
+    }
+}
 
 //Compteurs pour les widgets
 $nbEnAttente = count(array_filter($commandes, fn($c) => $c['statut_id'] == 1));
@@ -1597,13 +1624,15 @@ alerts.forEach(alert => {
 // Données pour le graphique (injectées depuis PHP)
 // --- DEBUT DU BLOC SECURISE ---
 const donneesMenus = <?php
-    if (!empty($statsParMenu)) {
+    if (!empty($statsMongoParMenu)) {
         $cleanStats = [];
-        foreach ($statsParMenu as $titre => $stats) {
+        foreach ($statsMongoParMenu as $stat) {
+            $titre = $stat['titre'];
+            $ca = $statsParMenu[$titre]['ca'] ?? 0;
             $cleanStats[] = [
                 'titre'        => $titre,
-                'nb_commandes' => $stats['nb_commandes'],
-                'ca'           => $stats['ca']
+                'nb_commandes' => $stat['nb_commandes'],
+                'ca'           => $ca
             ];
         }
         echo json_encode($cleanStats);

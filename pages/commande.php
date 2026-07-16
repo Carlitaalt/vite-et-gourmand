@@ -3,6 +3,7 @@
 session_start();
 require_once '../includes/db.php';
 require_once '../includes/auth.php';
+require_once '../includes/mongo.php';
 exiger_connexion();
 
 $pageTitle = 'Commander un menu';
@@ -158,6 +159,12 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         //Décrémentation du stock disponible du menu
         $stmtStock = $pdo->prepare("UPDATE menu SET stock_disponible = stock_disponible - 1 WHERE menu_id = ? AND stock_disponible > 0");
         $stmtStock->execute([$menuId]);
+
+        //Enregistrement de la commande dans MongoDB pour les statistiques admin
+        $stmtTitreMenu = $pdo->prepare("SELECT titre FROM menu WHERE menu_id = ?");
+        $stmtTitreMenu->execute([$menuId]);
+        $titreMenuMongo = $stmtTitreMenu->fetchColumn();
+        enregistrerCommandeMongo($mongoClient, $menuId, $titreMenuMongo, $totalFinal);
 
         $pdo->commit();
         $succes = "Votre commande n°$commandeId a été validée avec succès !";
