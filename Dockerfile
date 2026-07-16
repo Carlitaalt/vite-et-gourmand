@@ -34,4 +34,9 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction || true
 # Droits d'écriture si besoin (uploads d'images de menus par ex.)
 RUN chown -R www-data:www-data /var/www/html
 
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 80
+
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
