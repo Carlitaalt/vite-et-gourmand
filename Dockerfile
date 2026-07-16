@@ -10,7 +10,10 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Active mod_rewrite (utile si tu ajoutes des routes propres plus tard)
-RUN a2enmod rewrite
+RUN a2dismod mpm_event || true \
+    && a2dismod mpm_worker || true \
+    && a2enmod mpm_prefork \
+    && a2enmod rewrite
 
 # Augmente les limites d'upload PHP (photos de menus)
 RUN echo "upload_max_filesize = 20M" >> /usr/local/etc/php/conf.d/uploads.ini \

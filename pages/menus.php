@@ -51,13 +51,21 @@ function toSlug(string $str): string {
     return preg_replace('/[^a-z0-9]+/', '-', $str);
 }
 
-$themeBadgeClass = [
-    'noel' => 'badge-theme--noel',
-    'paques' => 'badge-theme--paques',
-    'classique' => 'badge-theme--classique',
-    'evenement' => 'badge-theme--evenement',
-    'ete' => 'badge-theme--evenement'
+//Palette de couleurs automatique pour les badges de thème
+//(fonctionne pour n'importe quel thème, même ajouté après coup, sans CSS à créer)
+$paletteThemes = [
+    ['bg' => 'rgba(178, 34, 52, 0.88)', 'text' => '#ffffff'],   // rouge
+    ['bg' => 'rgba(122, 178, 122, 0.88)', 'text' => '#ffffff'], // vert clair
+    ['bg' => 'rgba(44, 74, 46, 0.88)', 'text' => '#D6E8D7'],    // vert foncé
+    ['bg' => 'rgba(196, 151, 58, 0.88)', 'text' => '#ffffff'],  // doré
+    ['bg' => 'rgba(127, 119, 221, 0.85)', 'text' => '#ffffff'], // violet
+    ['bg' => 'rgba(74, 122, 74, 0.85)', 'text' => '#ffffff'],   // vert moyen
 ];
+
+function couleurTheme(string $libelle, array $palette): array {
+    $index = crc32($libelle) % count($palette);
+    return $palette[$index];
+}
 
 $regimePillClass = [
     'classique' => 'regime--classique',
@@ -166,7 +174,7 @@ $regimePillClass = [
                 $themeSlug = toSlug($menu['theme_nom'] ?? 'classique');
                 $regimeSlug = toSlug($menu['regime_nom'] ?? 'classique');
                 $prixTotal = (float)($menu['prix_total'] ?? ($menu['prix_par_personne'] * $menu['nombre_personne_minimum']));
-                $badgeClass = $themeBadgeClass[$themeSlug] ?? 'badge-theme--classique';
+                $couleurBadge = couleurTheme($menu['theme_nom'] ?? 'Classique', $paletteThemes);
                 $pillClass = $regimePillClass[$regimeSlug] ?? 'regime--classique';
             ?>
             <article class="menu-card"
@@ -182,7 +190,7 @@ $regimePillClass = [
                     <?php else: ?>
                         <div class="menu-card__img-placeholder">Aucune image</div>
                     <?php endif; ?>
-                    <span class="badge-theme <?= $badgeClass ?>">
+                    <span class="badge-theme" style="background-color: <?= $couleurBadge['bg'] ?>; color: <?= $couleurBadge['text'] ?>">
                         <?=  htmlspecialchars($menu['theme_nom'] ?? 'Classique') ?>
                     </span>
                 </div>
