@@ -15,10 +15,19 @@ RUN rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.c
     && ln -sf ../mods-available/mpm_prefork.conf /etc/apache2/mods-enabled/mpm_prefork.conf \
     && a2enmod rewrite
 
+# Désactive l'affichage public des erreurs PHP (sécurité en production)
+RUN echo "display_errors = Off" >> /usr/local/etc/php/conf.d/errors.ini \
+    && echo "log_errors = On" >> /usr/local/etc/php/conf.d/errors.ini \
+    && echo "error_log = /var/log/apache2/php_errors.log" >> /usr/local/etc/php/conf.d/errors.ini
+
 # Augmente les limites d'upload PHP (photos de menus)
 RUN echo "upload_max_filesize = 20M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "post_max_size = 25M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "max_file_uploads = 10" >> /usr/local/etc/php/conf.d/uploads.ini
+
+# Désactive l'affichage public des erreurs PHP (sécurité)
+RUN echo "display_errors = Off" >> /usr/local/etc/php/conf.d/errors.ini \
+    && echo "log_errors = On" >> /usr/local/etc/php/conf.d/errors.ini
 
 # Installe Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
