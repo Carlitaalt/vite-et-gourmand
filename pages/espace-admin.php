@@ -1758,6 +1758,11 @@ document.querySelectorAll('.compte-tab').forEach(button => {
 
             this.classList.add('active');
             targetPanel.classList.add('active');
+
+            //Le graphique dès qu'on arrive sur l'onglet statistiques
+            if(targetName === 'statistiques'){
+                creerGraphique(typeGraphique);
+            }
         } else {
             console.error("Erreur : Impossible de trouver le panneau ID'tab-" + targetName + "'");
         }
