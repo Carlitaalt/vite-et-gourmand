@@ -25,9 +25,10 @@ RUN echo "upload_max_filesize = 20M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "post_max_size = 25M" >> /usr/local/etc/php/conf.d/uploads.ini \
     && echo "max_file_uploads = 10" >> /usr/local/etc/php/conf.d/uploads.ini
 
-# Désactive l'affichage public des erreurs PHP (sécurité)
+# Désactive l'affichage public des erreurs PHP, mais les loggue sur stderr (visible dans les logs Railway)
 RUN echo "display_errors = Off" >> /usr/local/etc/php/conf.d/errors.ini \
-    && echo "log_errors = On" >> /usr/local/etc/php/conf.d/errors.ini
+    && echo "log_errors = On" >> /usr/local/etc/php/conf.d/errors.ini \
+    && echo "error_log = /dev/stderr" >> /usr/local/etc/php/conf.d/errors.ini
 
 # Installe Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
