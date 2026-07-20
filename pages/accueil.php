@@ -184,9 +184,9 @@ require_once '../includes/navbar.php';
 
         if(empty($avis)){
             $avis = [
-                ['prenom' => 'Sophie', 'nom' => 'M.', 'note' => 5, 'commentaire' => 'Une prestation exceptionnelle pour notre mariage ! Les menus étaient délicieux et le service impeccable. Toute notre famille a été ravie.', 'created_at'=> '2025-10-15'],
-                ['prenom' => 'Thomas', 'nom' => 'B.', 'note' => 5, 'commentaire' => 'Nous avons fait appel à Vite & Gourmand pour notre séminaire d\'entreprise. Résultat parfait, livraison à l\'heure, qualité irréprochable.', 'created_at' => '2025-11-02'],
-                ['prenom' => 'Marie', 'nom' => 'L.', 'note' => 4, 'commentaire' => 'Super expérience ! Les plats sont faits maison et ça se sent vraiment. Je recommande vivement pour tout type d\'événement.', 'created_at' => '2025-12-01']
+                ['prenom' => 'Sophie', 'nom' => 'M.', 'note' => 5, 'commentaire' => 'Une prestation exceptionnelle pour notre mariage ! Les menus étaient délicieux et le service impeccable. Toute notre famille a été ravie.', 'date'=> '2025-10-15'],
+                ['prenom' => 'Thomas', 'nom' => 'B.', 'note' => 5, 'commentaire' => 'Nous avons fait appel à Vite & Gourmand pour notre séminaire d\'entreprise. Résultat parfait, livraison à l\'heure, qualité irréprochable.', 'date' => '2025-11-02'],
+                ['prenom' => 'Marie', 'nom' => 'L.', 'note' => 4, 'commentaire' => 'Super expérience ! Les plats sont faits maison et ça se sent vraiment. Je recommande vivement pour tout type d\'événement.', 'date' => '2025-12-01']
             ];
         }
         ?>
