@@ -1,6 +1,5 @@
 /vendor/
 .env
-includes/db.php
 .DS_Store
-$.log
+*.log
 /logs/

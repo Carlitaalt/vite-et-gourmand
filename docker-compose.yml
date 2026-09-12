@@ -3,20 +3,41 @@ services:
     build: .
     container_name: vg_app
     ports:
-      - "8080:80"
+      - "${APP_PORT:-8080}:80"
     volumes:
       - ./:/var/www/html
     environment:
+      APP_URL: ${APP_URL:-http://localhost:8080}
       DB_HOST: mysql
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: ${MONGO_DB:-vite_gourmand}
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-none}
+      MAIL_FROM: ${MAIL_FROM:-noreply@vite-gourmand.fr}
+      MAIL_CONTACT: ${MAIL_CONTACT:-contact@vite-gourmand.fr}
     depends_on:
       mysql:
         condition: service_healthy
       mongo:
         condition: service_started
+      mailpit:
+        condition: service_started
+    networks:
+      - vg_network
+
+  # Serveur mail de test : intercepte tous les e-mails envoyés en local (interface web sur le port 8025)
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: vg_mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
     networks:
       - vg_network
 

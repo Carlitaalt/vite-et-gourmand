@@ -178,6 +178,7 @@ CREATE TABLE commande (
     heure_livraison TIME NOT NULL,
     adresse_livraison VARCHAR(255) NOT NULL,
     ville_livraison VARCHAR(100) NOT NULL,
+    distance_km DECIMAL(6, 1) NOT NULL DEFAULT 0,
     nombre_personnes INT NOT NULL,
     prix_total DECIMAL(10,2) NOT NULL,
     prix_livraison DECIMAL(10, 2) DEFAULT 0.00,
