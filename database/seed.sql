@@ -79,15 +79,17 @@ INSERT INTO horaire (jour, heure_ouverture, heure_fermeture) VALUES
 
 -- =====================================================
 -- 8. COMPTES DE DÉMONSTRATION
--- Mots de passe en clair (pour le manuel d'utilisation) :
---   Admin    : admin@vite-gourmand.fr   / Admin123!
---   Employé  : employe@vite-gourmand.fr / Employe123!
---   Client   : client@vite-gourmand.fr  / Client123!
+-- Mots de passe en clair (pour le manuel d'utilisation), conformes à la politique
+-- de l'application (10 caractères min., majuscule, minuscule, chiffre, caractère spécial) :
+--   Admin    : admin@vite-gourmand.fr   / Admin@2026!
+--   Employé  : employe@vite-gourmand.fr / Employe@2026!
+--   Client   : client@vite-gourmand.fr  / Client@2026!
+-- Seuls les hachages bcrypt (password_hash) sont stockés.
 -- =====================================================
 INSERT INTO utilisateur (role_id, prenom, nom, email, mot_de_passe, telephone, adresse_postale, ville, pays, actif) VALUES
-(3, 'Admin', 'Test', 'admin@vite-gourmand.fr', '$2b$10$fQeNUfSTvS0xzDDzIjE42eEJutfBVOnX5poSouWQvJjd6b2l4J0Di', '0600000001', '1 rue de l''Administration', 'Bordeaux', 'France', 1),
-(2, 'Emma', 'Employée', 'employe@vite-gourmand.fr', '$2b$10$QR9ZYhrLm1M950RLKQ7c.ecj8ukG0WVv6P0sTrdPK/FDl4Om0QvjK', '0600000002', '2 rue du Travail', 'Bordeaux', 'France', 1),
-(1, 'Camille', 'Client', 'client@vite-gourmand.fr', '$2b$10$SqqDz.CGqS9YQ0pJIokkW./mWT6AuqWNTdUNz0hiM.nqv0EQ1XR.e', '0600000003', '3 rue des Clients', 'Bordeaux', 'France', 1);
+(3, 'Admin', 'Test', 'admin@vite-gourmand.fr', '$2y$12$zVM3wMMR77AHAg6kAID46Ocjp28m/2bUfObshwDAdYnjWXbuDAuca', '0600000001', '1 rue de l''Administration', 'Bordeaux', 'France', 1),
+(2, 'Emma', 'Employée', 'employe@vite-gourmand.fr', '$2y$12$51VaZJCrsAumLV7yOHW/EuQPYwdyeORaW/8BYdM4N2/2p9JWgb9OW', '0600000002', '2 rue du Travail', 'Bordeaux', 'France', 1),
+(1, 'Camille', 'Client', 'client@vite-gourmand.fr', '$2y$12$825U7zmsgTFkmKVhk/vgquRHs24/50X5jjgPD5AW2UOoGQ5UCF/um', '0600000003', '3 rue des Clients', 'Bordeaux', 'France', 1);
 
 INSERT INTO employes (utilisateur_id, poste, salaire_horaire, date_embauche) VALUES
 (2, 'Chef de cuisine', 14.50, '2024-01-15');
@@ -162,3 +164,32 @@ INSERT INTO menu_image (menu_id, url, ordre) VALUES
 (3, 'assets/images/menu-noel.jpg', 1),
 (4, 'assets/images/menu-paques.jpg', 1),
 (5, 'assets/images/menu-prestige.jpg', 1);
+
+-- =====================================================
+-- 11. COMMANDES, SUIVI ET AVIS DE DÉMONSTRATION (compte client)
+-- Permettent de tester immédiatement : avis publié sur l'accueil, avis à modérer,
+-- commande en attente (à accepter par l'employé ou à modifier par le client), statistiques.
+-- Les documents MongoDB correspondants sont dans database/mongo-init.js.
+-- =====================================================
+INSERT INTO commande (utilisateur_id, statut_id, date_commande, date_prestation, heure_livraison, adresse_livraison, ville_livraison, distance_km, nombre_personnes, prix_total, prix_livraison, pret_materiel) VALUES
+(3, 7, '2026-06-01 10:00:00', '2026-06-13', '12:00:00', '3 rue des Clients', 'Bordeaux', 0, 12, 420.00, 0.00, 0),
+(3, 7, '2026-06-20 14:30:00', '2026-07-04', '19:30:00', '3 rue des Clients', 'Bordeaux', 0, 10, 550.00, 0.00, 1),
+(3, 1, '2026-09-01 09:15:00', '2026-12-19', '18:00:00', '8 avenue de la Gare', 'Mérignac', 10, 15, 985.90, 10.90, 0);
+
+INSERT INTO commande_menu (commande_id, menu_id, quantite, prix_unitaire) VALUES
+(1, 1, 12, 35.00),
+(2, 3, 10, 55.00),
+(3, 5, 15, 65.00);
+
+-- Suivi : la commande 1 est terminée sans prêt de matériel, la commande 2 après retour du matériel
+INSERT INTO commande_statut (commande_id, statut_id, date_modification) VALUES
+(1, 1, '2026-06-01 10:00:00'), (1, 2, '2026-06-02 09:00:00'), (1, 3, '2026-06-13 08:00:00'),
+(1, 4, '2026-06-13 11:15:00'), (1, 5, '2026-06-13 11:55:00'), (1, 7, '2026-06-13 15:00:00'),
+(2, 1, '2026-06-20 14:30:00'), (2, 2, '2026-06-21 10:00:00'), (2, 3, '2026-07-04 14:00:00'),
+(2, 4, '2026-07-04 18:45:00'), (2, 5, '2026-07-04 19:20:00'), (2, 6, '2026-07-04 23:00:00'),
+(2, 7, '2026-07-10 10:00:00'),
+(3, 1, '2026-09-01 09:15:00');
+
+INSERT INTO avis (commande_id, utilisateur_id, statut_avis_id, note, description, created_at) VALUES
+(1, 3, 2, 5, 'Un repas délicieux et une livraison à l''heure. Nos invités ont adoré le saumon rôti !', '2026-06-14 10:00:00'),
+(2, 3, 1, 4, 'Très bon menu de Noël et service impeccable. Merci pour le prêt de la vaisselle.', '2026-07-11 09:30:00');

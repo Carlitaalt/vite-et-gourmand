@@ -1,0 +1,10 @@
+# Fichiers exclus de l'image Docker (sécurité et légèreté)
+# - .env contient des secrets : il ne doit jamais être copié dans l'image
+# - vendor/ est réinstallé par Composer pendant la construction
+.git
+.env
+.env.*
+vendor
+docs
+.DS_Store
+docker-compose.yml

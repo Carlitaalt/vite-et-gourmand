@@ -72,6 +72,7 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+      - ./database/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks:
       - vg_network
 
