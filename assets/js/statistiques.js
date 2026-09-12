@@ -5,7 +5,7 @@
  * Chaque changement de filtre recharge les données par fetch (api/statistiques.php), sans rechargement de la page.
  */
 document.addEventListener('DOMContentLoaded', () => {
-    const zone = document.getElementById('statistiques');
+    const zone = document.getElementById('zone-statistiques');
     if (!zone) return;
 
     const racine = document.body.dataset.racine;
@@ -36,6 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             options: {
                 responsive: true,
+                // La hauteur est fixée par le conteneur (.graphique-conteneur), la largeur suit l'écran
+                maintainAspectRatio: false,
                 plugins: { legend: { display: typeGraphique === 'pie' } },
                 scales: typeGraphique === 'bar' ? { y: { beginAtZero: true, ticks: { stepSize: 1 } } } : {},
             },

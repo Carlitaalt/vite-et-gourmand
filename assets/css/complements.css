@@ -209,6 +209,11 @@ fieldset.filter-group,
     margin: 15px 0;
 }
 
+.graphique-conteneur {
+    position: relative;
+    height: 320px;
+}
+
 .stat-source {
     margin-top: 0.75rem;
     font-size: 0.8rem;

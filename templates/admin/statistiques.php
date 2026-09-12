@@ -8,7 +8,7 @@
  * @var App\Entity\Menu[] $menus
  */
 ?>
-<div id="statistiques">
+<div id="zone-statistiques">
 
     <form class="admin-stats-filtres" id="filtres-statistiques" role="search" aria-label="Filtrer les statistiques">
         <div class="employe-filtre-group">
@@ -50,7 +50,9 @@
             </div>
         </div>
         <div style="padding:1.5rem;">
-            <canvas id="graphique-menus" height="300" role="img" aria-label="Graphique du nombre de commandes par menu. Le détail chiffré figure dans le tableau récapitulatif."></canvas>
+            <div class="graphique-conteneur">
+                <canvas id="graphique-menus" role="img" aria-label="Graphique du nombre de commandes par menu. Le détail chiffré figure dans le tableau récapitulatif."></canvas>
+            </div>
             <p class="stat-source">Source : base NoSQL MongoDB (collection commandes_stats), alimentée à chaque commande passée.</p>
         </div>
     </div>
